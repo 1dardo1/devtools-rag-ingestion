@@ -1,0 +1,8 @@
+# The repository stores every text file with LF, and checks it out with LF on
+# every platform. This service is built into Linux containers; a CRLF shell
+# script fails there with a misleading "not found" error.
+* text=auto eol=lf
+
+# Windows batch files are the one exception: cmd.exe requires CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
