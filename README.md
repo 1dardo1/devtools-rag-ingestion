@@ -42,6 +42,10 @@ The distribution is `devtools-rag-ingestion`; the import root is
 Design decisions are recorded in [`docs/adr/`](docs/adr/). System-wide decisions
 live in the [contracts repository](../../devtools-rag-contracts).
 
+[`docs/BUILD-PLAN.md`](docs/BUILD-PLAN.md) maps the work in this repository:
+what blocks what, what can be built in parallel, and a plain-language
+description of every unit.
+
 ## Stack
 
 Python 3.14 · FastAPI · Pydantic v2 · PostgreSQL · Redis Streams · Docker
