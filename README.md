@@ -29,19 +29,25 @@ is unavailable at the time.
 Hexagonal, with the dependency arrow pointing inward:
 
 ```
-src/
+src/rag_ingestion/
   domain/          entities, value objects, events, ports — zero external imports
   application/     use cases — depends only on domain
   infrastructure/  adapters — PostgreSQL, outbox relay, Redis publisher
   api/             FastAPI routers and request/response models
 ```
 
+The distribution is `devtools-rag-ingestion`; the import root is
+`rag_ingestion`. See [ADR 0003](docs/adr/0003-src-layout-and-import-root.md).
+
 Design decisions are recorded in [`docs/adr/`](docs/adr/). System-wide decisions
 live in the [contracts repository](../../devtools-rag-contracts).
 
 ## Stack
 
-Python 3.12 · FastAPI · Pydantic v2 · PostgreSQL · Redis Streams · Docker
+Python 3.14 · FastAPI · Pydantic v2 · PostgreSQL · Redis Streams · Docker
+
+The interpreter version is recorded in
+[ADR 0002](docs/adr/0002-target-python-3-14.md).
 
 ## Running locally
 
