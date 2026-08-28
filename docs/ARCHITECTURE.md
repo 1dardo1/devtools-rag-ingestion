@@ -96,7 +96,7 @@ Sufficient throughput for this workload, minimal local footprint, consumer group
 
 ## 3. Stack
 
-- **Language:** Python 3.12+, fully type-annotated
+- **Language:** Python 3.14+, fully type-annotated (see ADR 0002)
 - **Package manager:** `uv`
 - **Web framework:** FastAPI (OpenAPI generated automatically)
 - **Validation:** Pydantic v2

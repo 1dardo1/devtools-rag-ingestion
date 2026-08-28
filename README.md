@@ -41,7 +41,10 @@ live in the [contracts repository](../../devtools-rag-contracts).
 
 ## Stack
 
-Python 3.12 · FastAPI · Pydantic v2 · PostgreSQL · Redis Streams · Docker
+Python 3.14 · FastAPI · Pydantic v2 · PostgreSQL · Redis Streams · Docker
+
+The interpreter version is recorded in
+[ADR 0002](docs/adr/0002-target-python-3-14.md).
 
 ## Running locally
 
