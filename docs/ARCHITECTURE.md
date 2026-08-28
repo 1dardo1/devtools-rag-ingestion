@@ -198,8 +198,11 @@ Rate limiting and input validation on both services. Prompt injection mitigation
 
 ## 6. Repository layout (both services)
 
+Each service is a single importable package under `src/` — `rag_ingestion` here,
+`rag_retrieval` in the retrieval service. See ADR 0003 in this repository.
+
 ```
-src/
+src/<package>/
   domain/          # entities, value objects, events, ports. Zero external imports.
   application/     # use cases. Depends only on domain.
   infrastructure/  # adapters. Depends on domain ports.
