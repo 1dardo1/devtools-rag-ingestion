@@ -21,8 +21,9 @@ Three facts about this project narrow the choice considerably:
   PyPI; the artifact that reaches production is a container image. The wheel
   exists so that the package can be installed into a virtual environment and
   into that image.
-- **The layout is a canonical src layout** (ADR 0003), which every candidate
-  backend detects without configuration except one.
+- **The layout is a canonical src layout** (ADR 0003), but the distribution name
+  and the import root deliberately differ, which defeats the automatic package
+  detection every candidate backend offers. See the decision below.
 
 Current versions on PyPI as of this record: `hatchling` 1.32.0,
 `setuptools` 84.0.0, `uv-build` 0.12.7. All three support Python 3.14
@@ -61,9 +62,24 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 ```
 
-No `[tool.hatch.*]` configuration is added. With the src layout of ADR 0003,
-`hatchling` locates `src/rag_ingestion/` on its own, and configuration is only
-introduced later if something concrete requires it.
+One piece of `[tool.hatch.*]` configuration is required, and only one:
+
+```toml
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_ingestion"]
+```
+
+`hatchling` auto-detects a package at `src/<normalised project name>`, which
+here would be `src/devtools_rag_ingestion`. That directory does not exist,
+because ADR 0003 deliberately gave the distribution and the import root
+different names. Without these two lines the build fails outright —
+`Call to hatchling.build.build_editable failed` — so this is not a
+configuration preference but a consequence of ADR 0003 that has to be paid
+somewhere. The alternative is renaming one of the two names to match the other,
+which ADR 0003 considered and rejected on its own merits.
+
+Beyond those two lines no `[tool.hatch.*]` configuration is added, and more is
+introduced only if something concrete requires it.
 
 The speed advantage of `uv_build` is real and irrelevant at this scale: a
 container build is dominated by dependency download, not by the backend. The
@@ -72,20 +88,25 @@ applies to capabilities a pure-Python service never exercises.
 
 ## Consequences
 
-**Positive.** The build works without configuration, so there is no packaging
-setup to maintain or explain. Anyone can build the project with standard tooling
-(`pip install .`, `python -m build`) without knowing that `uv` is involved,
-which keeps CI and container builds free of a hard dependency on one frontend.
-The choice matches what most current Python tutorials and generators produce, so
-searching for help returns answers that apply.
+**Positive.** The packaging setup is two lines, and both state something a
+reader can verify against the directory tree. Anyone can build the project with
+standard tooling (`pip install .`, `python -m build`) without knowing that `uv`
+is involved, which keeps CI and container builds free of a hard dependency on
+one frontend. The choice matches what most current Python tutorials and
+generators produce, so searching for help returns answers that apply.
 
 **Negative.** `hatchling` is one more build-time dependency to download inside
 `docker build`, where `uv_build` would have come free — small, but not zero, and
-it appears on every cold image build. Its advanced configuration surface
-(`[tool.hatch.*]`) is an ecosystem of its own that tends to accumulate once the
-first entry is added, and nothing prevents that drift automatically.
+it appears on every cold image build.
 
-Reversing this decision costs roughly five lines in `pyproject.toml` and touches
-no import, so it stays cheap for as long as no backend-specific configuration
-has been written. That cheapness is a property of PEP 517's frontend/backend
-split, and it disappears the moment `[tool.hatch.*]` grows non-trivial.
+The `[tool.hatch.*]` table now exists, which removes the natural barrier against
+adding to it: its configuration surface is an ecosystem of its own, and the next
+entry will be easier to justify than this one was. Nothing prevents that drift
+automatically. Any proposal to add a third line should be treated as a decision,
+not a detail.
+
+Reversing this decision costs roughly seven lines in `pyproject.toml` — the
+`[build-system]` table and the package path — and touches no import. The
+equivalent path exists for every candidate backend, so the switch stays cheap;
+it is `[tool.hatch.*]` growing beyond the package path that would make it
+expensive. That cheapness is a property of PEP 517's frontend/backend split.

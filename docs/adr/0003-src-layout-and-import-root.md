@@ -53,8 +53,9 @@ than a hypothetical one:
   `domain`, `application`, `infrastructure` and `config` in the global import
   namespace, and all four already exist as published distributions. A single
   transitive dependency pulling any of them in produces an import shadowing bug
-  that fails silently and is unpleasant to diagnose. It also requires every
-  package to be declared by hand in the build configuration.
+  that fails silently and is unpleasant to diagnose. It would also require all
+  four packages to be declared by hand in the build configuration, where the
+  chosen layout requires one.
 
 - **A flat layout with the package at the repository root**, no `src/`
   directory. Simplest tree. Rejected because it reintroduces precisely the
@@ -99,12 +100,14 @@ that the packaged artifact works. The import root cannot collide with any
 dependency. Layer boundaries become expressible as module paths, so the
 dependency arrow can later be enforced mechanically — for example by asserting
 that nothing under `rag_ingestion.domain` imports from `rag_ingestion.infrastructure`
-— rather than by review alone. The build backend needs no manual package
-enumeration.
+— rather than by review alone.
 
 **Negative.** The distribution name and the import name differ, which reliably
 confuses a first-time reader who looks for a `devtools_rag_ingestion` directory
-and does not find one. Every import carries a prefix that the flat alternative
+and does not find one. It also defeats the build backend's automatic package
+detection, which looks for `src/<normalised distribution name>`: the package
+path has to be declared explicitly, and until it is, the build fails rather than
+degrading gracefully. ADR 0004 records the two lines this costs. Every import carries a prefix that the flat alternative
 would not have needed. The package must be installed, normally in editable mode
 via `uv sync`, before the tests can run at all; a contributor who tries to run
 `pytest` against a bare checkout gets an import error rather than a test result,
