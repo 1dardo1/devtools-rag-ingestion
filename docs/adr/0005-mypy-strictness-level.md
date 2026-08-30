@@ -1,7 +1,7 @@
 # 5. Close the three gaps that `mypy --strict` leaves open
 
 - **Status:** Accepted
-- **Date:** 2026-08-28
+- **Last revised:** 2026-08-28
 
 ## Context
 

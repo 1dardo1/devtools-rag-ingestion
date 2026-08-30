@@ -1,7 +1,7 @@
 # 2. Target Python 3.14
 
 - **Status:** Accepted
-- **Date:** 2026-08-28
+- **Last revised:** 2026-08-28
 
 ## Context
 
@@ -26,7 +26,7 @@ Python 3.14 was released in October 2025 and remains in bugfix maintenance until
 roughly October 2027. This service is a portfolio artifact intended to be
 deployed, maintained and discussed through 2027.
 
-Ecosystem support was verified against PyPI on the date of this record rather
+Ecosystem support was verified against PyPI on 2026-08-28 rather
 than assumed:
 
 | Package | Latest version | Compiled wheels published |

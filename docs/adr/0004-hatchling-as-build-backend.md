@@ -1,7 +1,7 @@
 # 4. Use hatchling as the build backend
 
 - **Status:** Accepted
-- **Date:** 2026-08-28
+- **Last revised:** 2026-08-30
 
 ## Context
 
@@ -25,7 +25,7 @@ Three facts about this project narrow the choice considerably:
   and the import root deliberately differ, which defeats the automatic package
   detection every candidate backend offers. See the decision below.
 
-Current versions on PyPI as of this record: `hatchling` 1.32.0,
+Current versions on PyPI on 2026-08-28: `hatchling` 1.32.0,
 `setuptools` 84.0.0, `uv-build` 0.12.7. All three support Python 3.14
 (ADR 0002).
 

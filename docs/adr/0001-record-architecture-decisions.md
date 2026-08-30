@@ -1,7 +1,7 @@
 # 1. Record architecture decisions
 
 - **Status:** Accepted
-- **Date:** 2026-08-22
+- **Last revised:** 2026-08-30
 
 ## Context
 
@@ -55,6 +55,16 @@ contradicted.
 
 Correcting a record is an ordinary change: it goes through a branch and a pull
 request, where the diff shows what moved and the description says why.
+
+Each record therefore carries **`Last revised`**, not a creation date: the day
+its contents were last known to be true. A record whose decision has never been
+revisited still shows the day it was written, because nothing has changed since.
+The alternative — keeping the original decision date — was rejected because a
+reader checking whether a record is stale wants to know when it was last
+confirmed, and `git log` answers the other question in a way a header field
+cannot. Any claim inside a record that depends on a moment in time, such as a
+version observed on PyPI, states that date explicitly rather than referring to
+"this record".
 
 ## Consequences
 
