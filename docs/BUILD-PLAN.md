@@ -24,8 +24,8 @@ flowchart TD
 
     subgraph PH1["Phase 1 — Domain"]
         direction TB
-        U12["1.2 Value objects<br/>DocumentId, ContentHash, Metadata"]
-        U11["1.1 Entities<br/>Document, Collection"]
+        U12["1.1 Value objects<br/>DocumentId, ContentHash, Metadata"]
+        U11["1.2 Entities<br/>Document, Collection"]
         U13["1.3 Rules<br/>dedup, state machine, limits"]
         U14["1.4 Event<br/>DocumentIngested"]
         U15["1.5 Ports<br/>Repository, EventPublisher"]
@@ -137,7 +137,7 @@ Anything with **no arrow between it** can be worked on at the same time.
 
 | These can run at the same time | Why they do not block each other |
 |---|---|
-| **1.3 rules**, **1.4 event** and **1.5 ports** | All three need the entities and nothing from each other. Three independent lines of work as soon as 1.1 lands. |
+| **1.3 rules**, **1.4 event** and **1.5 ports** | All three need the entities and nothing from each other. Three independent lines of work as soon as 1.2 lands. |
 | **2.1**, **2.2** and **2.3** | The three use cases share the ports but never call each other. |
 | **4.4 HTTP layer** and **4.1 → 4.2 → 4.3** | The web layer talks only to the use cases; the storage chain only to the database. They meet for the first time at 4.5. This is the longest parallel stretch in the repository. |
 | **Phase 5 containers** and **Phase 6 quality** | The integration tests start their own throwaway containers; they do not need the production image to exist. |
@@ -148,12 +148,12 @@ Anything with **no arrow between it** can be worked on at the same time.
 
 | Unit | Why it is the bottleneck |
 |---|---|
-| **1.1 Entities** | Three units wait on it directly, and everything else transitively. The single highest-leverage piece of work in the repository. |
+| **1.2 Entities** | Three units wait on it directly, and everything else transitively. The single highest-leverage piece of work in the repository. |
 | **2.1 IngestDocument** | Both halves of Phase 4 wait on it — the storage chain and the HTTP layer. |
 | **4.5 Composition root** | Everything downstream — containers, quality, deployment — waits here. |
 | **4.2 Outbox in one transaction** | Not the most-blocking, but the least forgiving. Getting it wrong is a defect no amount of downstream work compensates for. |
 
-## Two notes on the edges
+## A note on the edges
 
 **The event travels in both directions.** Unit 1.4 settles the *shape* of the
 `DocumentIngested` announcement here, before Phase 3 turns it into the shared
@@ -163,20 +163,15 @@ prerequisite for starting anything here, so an arrow would suggest a wait that
 does not exist. `ROADMAP.md` 1.4 records the other half: "shape agreed before
 Phase 3".
 
-**`ROADMAP.md` numbers entities as 1.1 and value objects as 1.2**, but the
-dependency runs the other way: a `Document` holds a `DocumentId` and a
-`ContentHash`, so the value objects come first. The numbering is a listing
-order, not a build order. The map above follows the dependency.
-
 ---
 
 ## What each box means, in plain language
 
 **Phase 0 — Toolchain scaffold.** Set up the workshop before making anything. This means installing the tools that check the work — one that catches sloppy writing, one that catches mistakes about what kind of thing each value is, one that runs the tests — and proving all three run and pass on an empty project. It goes first because these tools are painless to adopt when there is nothing to fix and painful to adopt once there is.
 
-**1.2 — Value objects.** Define the small, precise things a document is described by: its identifier, a fingerprint of its contents, and the labels attached to it — which library it documents, which version, what kind of page it is, where it came from. The point is that an invalid one cannot be created at all: there is no such thing as a half-formed fingerprint sitting around waiting to cause trouble later.
+**1.1 — Value objects.** Define the small, precise things a document is described by: its identifier, a fingerprint of its contents, and the labels attached to it — which library it documents, which version, what kind of page it is, where it came from. The point is that an invalid one cannot be created at all: there is no such thing as a half-formed fingerprint sitting around waiting to cause trouble later.
 
-**1.1 — Entities.** Define what a document and a collection actually *are*, built out of the pieces from 1.2. A document is a thing with an identity that persists as its contents and status change; a collection is the box documents go into. This is the vocabulary everything else is written in.
+**1.2 — Entities.** Define what a document and a collection actually *are*, built out of the pieces from 1.1. A document is a thing with an identity that persists as its contents and status change; a collection is the box documents go into. This is the vocabulary everything else is written in.
 
 **1.3 — Rules.** Write down the things that must always be true. The same document cannot be stored twice in the same box. A document moves through its stages in one direction only — waiting, being worked on, then either finished or failed — and never jumps backwards. Nothing may exceed the agreed size or count. Each rule gets a test proving it cannot be broken.
 
