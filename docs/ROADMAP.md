@@ -15,14 +15,17 @@ fixing hundreds of errors at once.
 
 | # | Unit | Done when |
 |---|------|-----------|
-| 1.1 | Entities `Document`, `Collection` | Tests pass |
-| 1.2 | Value objects `DocumentId`, `ContentHash`, `Metadata` | Invalid values cannot be constructed |
-| 1.2b | `Metadata` fields: `source_library`, `library_version`, `doc_type`, `source_url` | Required fields enforced at construction |
+| 1.1 | Value objects `DocumentId`, `ContentHash`, `Metadata` | Invalid values cannot be constructed |
+| 1.1b | `Metadata` fields: `source_library`, `library_version`, `doc_type`, `source_url` | Required fields enforced at construction |
+| 1.2 | Entities `Document`, `Collection` | Tests pass |
 | 1.3 | Rules: content-hash deduplication, state machine, size and count limits | Each rule has a test |
 | 1.4 | Domain event `DocumentIngested` | Shape agreed before Phase 3 |
 | 1.5 | Ports `DocumentRepository`, `EventPublisher` | Defined as `Protocol` |
 
 **Phase complete when:** the `domain/` package has zero external imports.
+
+**Why this order:** a `Document` holds a `DocumentId` and a `ContentHash`, so the
+value objects come before the entities that contain them.
 
 **Why here:** cheapest layer to change and the one every other layer depends on.
 

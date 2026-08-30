@@ -138,7 +138,7 @@ Project scaffold with `src/` layout, `uv`, `ruff`, strict `mypy`, `pytest`.
 **Why first:** every later phase depends on this toolchain being enforced from commit one. Adding strict typing later means fixing hundreds of errors at once.
 
 ### Phase 1 — Ingestion domain
-Entities `Document` and `Collection`. Value objects `DocumentId`, `ContentHash`, `Metadata`. Business rules: content-hash deduplication within a collection, document state machine (`pending → processing → indexed | failed`), size and count limits. Domain event `DocumentIngested`. Ports `DocumentRepository` and `EventPublisher`. Unit tests.
+Value objects `DocumentId`, `ContentHash`, `Metadata`. Entities `Document` and `Collection`. Business rules: content-hash deduplication within a collection, document state machine (`pending → processing → indexed | failed`), size and count limits. Domain event `DocumentIngested`. Ports `DocumentRepository` and `EventPublisher`. Unit tests.
 **Done when:** the domain package has zero external imports and its tests pass.
 **Why here:** this is the cheapest, highest-leverage layer. Getting the invariants right now prevents rework in every layer above.
 
