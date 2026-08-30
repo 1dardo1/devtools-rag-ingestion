@@ -1,7 +1,7 @@
 # 6. Select `ruff` rules deliberately rather than by default or in bulk
 
 - **Status:** Accepted
-- **Last revised:** 2026-08-28
+- **Last revised:** 2026-08-30
 
 ## Context
 
@@ -100,6 +100,22 @@ module and a use case:
 The two families together penalise generic exceptions carrying ad-hoc strings
 and leave named domain exceptions alone, which is the direction Phase 1 should
 move in regardless.
+
+**With one qualification, found when the value objects were written.** `EM101`
+looks at the *argument*, not at the exception class: a named domain exception
+raised with a string **literal** is still flagged, even though the literal is
+an argument rather than a message.
+
+```python
+raise MissingMetadataFieldError("source_library")   # EM101
+raise MissingMetadataFieldError(field_name)         # not flagged
+```
+
+The rule is satisfied by passing a variable, which in practice means hoisting
+the check into a helper that takes the field name as a parameter. That turned
+out to remove real duplication rather than merely appease the linter, so no
+suppression was needed — but the general claim above is narrower than it first
+appeared, and a future case may not resolve as tidily.
 
 ### `ARG` conflicts, and the conflict is confined to `tests/`
 
