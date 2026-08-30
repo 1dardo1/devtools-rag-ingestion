@@ -109,3 +109,13 @@ class InvalidLimitError(DomainError):
 
     def __init__(self, limit_name: str, value: int) -> None:
         super().__init__(f"Limit {limit_name!r} must be positive, not {value}")
+
+
+class NaiveTimestampError(DomainError):
+    """Raised when a timestamp carries no timezone."""
+
+    def __init__(self, field_name: str) -> None:
+        super().__init__(
+            f"{field_name!r} must carry a timezone; a naive timestamp is "
+            f"ambiguous the moment it leaves this process"
+        )
