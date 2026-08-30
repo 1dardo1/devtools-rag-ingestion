@@ -55,7 +55,24 @@ The interpreter version is recorded in
 
 ## Running locally
 
-<!-- TODO: fill in at Phase 5, when docker compose exists. -->
+Requires [`uv`](https://docs.astral.sh/uv/), which installs Python 3.14 itself
+if the machine does not have it.
+
+```bash
+uv sync                       # create the environment and install the package
+uv run ruff check .           # lint
+uv run ruff format --check .  # formatting
+uv run mypy                   # strict types, over src and tests
+uv run pytest                 # tests
+```
+
+`uv sync` is not optional before `uv run pytest`. Under the src layout the
+suite imports the *installed* package rather than the source tree, so a bare
+checkout fails with an import error instead of a test result. That is
+deliberate — it is what makes a green suite evidence that the packaged
+artifact works. See [ADR 0003](docs/adr/0003-src-layout-and-import-root.md).
+
+<!-- TODO: extend at Phase 5, when docker compose exists. -->
 
 ## Related repositories
 

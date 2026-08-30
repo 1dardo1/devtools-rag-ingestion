@@ -98,6 +98,7 @@ Sufficient throughput for this workload, minimal local footprint, consumer group
 
 - **Language:** Python 3.14+, fully type-annotated (see ADR 0002)
 - **Package manager:** `uv`
+- **Build backend:** `hatchling` (see ADR 0004)
 - **Web framework:** FastAPI (OpenAPI generated automatically)
 - **Validation:** Pydantic v2
 - **Lint / format:** `ruff`
