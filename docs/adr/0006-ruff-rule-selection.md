@@ -1,7 +1,7 @@
 # 6. Select `ruff` rules deliberately rather than by default or in bulk
 
 - **Status:** Accepted
-- **Date:** 2026-08-28
+- **Last revised:** 2026-08-28
 
 ## Context
 

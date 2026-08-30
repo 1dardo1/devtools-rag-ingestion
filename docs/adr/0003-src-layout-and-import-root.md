@@ -1,7 +1,7 @@
 # 3. Use a src layout with `rag_ingestion` as the import root
 
 - **Status:** Accepted
-- **Date:** 2026-08-28
+- **Last revised:** 2026-08-30
 
 ## Context
 
@@ -30,7 +30,7 @@ Two names are involved, and they are independent:
 They need not match, and across the ecosystem they frequently do not:
 `python-dateutil` imports as `dateutil`, `beautifulsoup4` as `bs4`.
 
-Name availability was checked against PyPI on the date of this record, because
+Name availability was checked against PyPI on 2026-08-28, because
 the risk under discussion is collision with an installed distribution rather
 than a hypothetical one:
 
@@ -53,8 +53,9 @@ than a hypothetical one:
   `domain`, `application`, `infrastructure` and `config` in the global import
   namespace, and all four already exist as published distributions. A single
   transitive dependency pulling any of them in produces an import shadowing bug
-  that fails silently and is unpleasant to diagnose. It also requires every
-  package to be declared by hand in the build configuration.
+  that fails silently and is unpleasant to diagnose. It would also require all
+  four packages to be declared by hand in the build configuration, where the
+  chosen layout requires one.
 
 - **A flat layout with the package at the repository root**, no `src/`
   directory. Simplest tree. Rejected because it reintroduces precisely the
@@ -99,14 +100,20 @@ that the packaged artifact works. The import root cannot collide with any
 dependency. Layer boundaries become expressible as module paths, so the
 dependency arrow can later be enforced mechanically — for example by asserting
 that nothing under `rag_ingestion.domain` imports from `rag_ingestion.infrastructure`
-— rather than by review alone. The build backend needs no manual package
-enumeration.
+— rather than by review alone.
 
 **Negative.** The distribution name and the import name differ, which reliably
 confuses a first-time reader who looks for a `devtools_rag_ingestion` directory
 and does not find one. Every import carries a prefix that the flat alternative
-would not have needed. The package must be installed, normally in editable mode
-via `uv sync`, before the tests can run at all; a contributor who tries to run
-`pytest` against a bare checkout gets an import error rather than a test result,
-which is a genuine and recurring source of confusion for anyone meeting the src
-layout for the first time.
+would not have needed.
+
+That same mismatch defeats the build backend's automatic package detection,
+which looks for `src/<normalised distribution name>`. The package path has to be
+declared explicitly, and until it is the build fails outright rather than
+degrading gracefully. ADR 0004 records the two lines this costs.
+
+The package must be installed, normally in editable mode via `uv sync`, before
+the tests can run at all; a contributor who tries to run `pytest` against a bare
+checkout gets an import error rather than a test result, which is a genuine and
+recurring source of confusion for anyone meeting the src layout for the first
+time.

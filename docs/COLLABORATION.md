@@ -143,6 +143,8 @@ Format: context, options considered, decision, consequences (including the negat
 
 An ADR that does not state a downside is incomplete. Every real decision costs something.
 
+**Records are corrected in place.** When a decision changes, or a record turns out to state something untrue, edit that record rather than adding one that supersedes it. `docs/adr/` shows the decisions currently in force and nothing else; the history lives in `git log` and in the pull request that made the change. If implementation contradicts a record — as opposed to merely going beyond it — say so and correct the record in the same breath. See ADR 0001.
+
 ---
 
 ## 9. Session hygiene
