@@ -65,3 +65,47 @@ class MissingCollectionNameError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("A collection must have a name that is not blank")
+
+
+class IllegalStatusTransitionError(DomainError):
+    """Raised when a document is asked to move to a status it cannot reach."""
+
+    def __init__(self, current: str, requested: str) -> None:
+        super().__init__(f"A document that is {current!r} cannot become {requested!r}")
+
+
+class DocumentTooLargeError(DomainError):
+    """Raised when a document exceeds the largest size the service accepts."""
+
+    def __init__(self, size_in_bytes: int, limit_in_bytes: int) -> None:
+        super().__init__(
+            f"A document of {size_in_bytes} bytes exceeds the "
+            f"{limit_in_bytes} byte limit"
+        )
+
+
+class CollectionFullError(DomainError):
+    """Raised when a collection already holds as many documents as it may."""
+
+    def __init__(self, document_count: int, limit: int) -> None:
+        super().__init__(
+            f"A collection already holding {document_count} documents cannot "
+            f"take another; the limit is {limit}"
+        )
+
+
+class DuplicateDocumentError(DomainError):
+    """Raised when a collection already holds this exact content."""
+
+    def __init__(self, content_hash: str, collection_id: str) -> None:
+        super().__init__(
+            f"Collection {collection_id} already holds a document with "
+            f"content hash {content_hash}"
+        )
+
+
+class InvalidLimitError(DomainError):
+    """Raised when a configured limit would make ingestion impossible."""
+
+    def __init__(self, limit_name: str, value: int) -> None:
+        super().__init__(f"Limit {limit_name!r} must be positive, not {value}")
