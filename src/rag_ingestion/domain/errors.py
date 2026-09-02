@@ -44,3 +44,24 @@ class InvalidSourceUrlError(DomainError):
 
     def __init__(self, value: str) -> None:
         super().__init__(f"{value!r} is not an absolute http or https URL")
+
+
+class InvalidCollectionIdError(DomainError):
+    """Raised when a string cannot be read as a collection identifier."""
+
+    def __init__(self, value: str) -> None:
+        super().__init__(f"{value!r} is not a valid collection identifier")
+
+
+class NegativeDocumentSizeError(DomainError):
+    """Raised when a document claims to occupy fewer than zero bytes."""
+
+    def __init__(self, size_in_bytes: int) -> None:
+        super().__init__(f"A document cannot be {size_in_bytes} bytes long")
+
+
+class MissingCollectionNameError(DomainError):
+    """Raised when a collection is created without a usable name."""
+
+    def __init__(self) -> None:
+        super().__init__("A collection must have a name that is not blank")
