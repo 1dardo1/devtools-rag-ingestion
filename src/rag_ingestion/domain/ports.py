@@ -5,17 +5,14 @@ an adapter satisfies one by having the right methods rather than by inheriting
 from it — principle 4.3. Nothing here imports an implementation, and no
 implementation is required to import this module.
 
-**These are synchronous.** Nothing in the domain or the use cases performs I/O
-of its own, so making them `async` would colour every caller for the benefit
-of the adapters alone, and would pull an async test plugin into the toolchain.
-FastAPI runs synchronous endpoints in a worker threadpool, which is a
-well-trodden path for a service whose slow part is a database call. The cost
-is real and worth naming: that threadpool has a bounded worker count, and if
-this service ever became throughput-bound rather than correctness-bound, the
-ports would have to change and every caller with them. Phase 2 is the last
-cheap moment to revisit it.
+**These are synchronous**, and ADR 0007 records why: nothing here makes a slow
+call to a third party, so the saving async offers is real but small, while its
+cost — every caller coloured, an async test plugin in the toolchain — is paid
+everywhere. That record also names the risk, which is a change of workload
+rather than of volume.
 """
 
+from datetime import datetime
 from typing import Protocol
 
 from rag_ingestion.domain.collection import Collection
@@ -24,6 +21,32 @@ from rag_ingestion.domain.content_hash import ContentHash
 from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.events import DocumentIngested
+
+
+class Clock(Protocol):
+    """Where "now" comes from.
+
+    Reading a clock is I/O wearing a disguise: the answer comes from outside
+    the process and differs on every call. Left unguarded it becomes a hidden
+    dependency on real time, and any test that asserts on a timestamp either
+    turns non-deterministic or resorts to patching `datetime` — which couples
+    the test to the implementation it is supposed to be independent of.
+
+    So it goes behind a port for the same reason the database does. Production
+    supplies a clock that reads the system time; a test supplies one that
+    returns a fixed instant, and the assertion becomes an equality.
+
+    Not named in `ROADMAP.md` 1.5, which lists only `DocumentRepository` and
+    `EventPublisher`. It is needed because `DocumentIngested` carries
+    `occurred_at` and something has to produce it. The alternative — having the
+    HTTP layer pass the instant in — was rejected: it moves a domain concern
+    outside the application boundary and makes every caller responsible for
+    remembering that the instant must carry a timezone.
+    """
+
+    def now(self) -> datetime:
+        """The current instant, with a timezone attached."""
+        ...
 
 
 class DocumentRepository(Protocol):

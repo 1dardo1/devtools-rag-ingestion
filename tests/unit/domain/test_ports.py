@@ -12,6 +12,8 @@ double that has quietly stopped matching. This file is the first place that
 argument is cashed in.
 """
 
+from datetime import UTC, datetime
+
 from rag_ingestion.domain.collection import Collection
 from rag_ingestion.domain.collection_id import CollectionId
 from rag_ingestion.domain.content_hash import ContentHash
@@ -21,6 +23,7 @@ from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.events import DocumentIngested
 from rag_ingestion.domain.metadata import Metadata
 from rag_ingestion.domain.ports import (
+    Clock,
     CollectionRepository,
     DocumentRepository,
     EventPublisher,
@@ -64,6 +67,16 @@ class InMemoryCollectionRepository:
         return self.collections.get(collection_id)
 
 
+class FixedClock:
+    """The whole point of the port: a test can name the instant it expects."""
+
+    def __init__(self, instant: datetime) -> None:
+        self._instant = instant
+
+    def now(self) -> datetime:
+        return self._instant
+
+
 class RecordingEventPublisher:
     def __init__(self) -> None:
         self.published: list[DocumentIngested] = []
@@ -89,6 +102,19 @@ def test_the_recording_publisher_satisfies_the_port() -> None:
     publisher: EventPublisher = RecordingEventPublisher()
 
     assert publisher.publish is not None
+
+
+def test_the_fixed_clock_satisfies_the_port() -> None:
+    clock: Clock = FixedClock(datetime(2026, 8, 30, 9, 15, tzinfo=UTC))
+
+    assert clock.now() == datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
+
+
+def test_a_fixed_clock_does_not_move() -> None:
+    """Determinism is the reason this port exists at all."""
+    clock = FixedClock(datetime(2026, 8, 30, 9, 15, tzinfo=UTC))
+
+    assert clock.now() == clock.now()
 
 
 def test_a_missing_document_is_reported_as_absent_rather_than_raising() -> None:
