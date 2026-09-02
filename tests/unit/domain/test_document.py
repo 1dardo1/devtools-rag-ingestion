@@ -36,7 +36,8 @@ def test_two_documents_with_the_same_identity_are_the_same_document() -> None:
 
     one = a_document(document_id=shared_id, content=b"before")
     other = a_document(document_id=shared_id, content=b"after", size_in_bytes=5)
-    other.status = DocumentStatus.INDEXED
+    other.start_processing()
+    other.mark_indexed()
 
     assert one == other
 
@@ -62,7 +63,8 @@ def test_a_document_keeps_its_place_in_a_set_when_its_status_changes() -> None:
     document = a_document()
     documents = {document}
 
-    document.status = DocumentStatus.INDEXED
+    document.start_processing()
+    document.mark_indexed()
 
     assert document in documents
 
