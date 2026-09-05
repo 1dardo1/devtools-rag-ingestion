@@ -1,0 +1,69 @@
+# Every check a contributor runs locally, run again on a clean machine.
+#
+# The value is not that these commands pass — they pass on the author's laptop
+# by the time a pull request exists. It is that they pass somewhere that has
+# never seen the author's laptop: no stale `.mypy_cache`, no editable install
+# left over from an experiment, no tool version that happens to be on PATH.
+#
+# See ADR 0008 for why this is one job rather than four, and why every action
+# is pinned to a commit rather than a tag.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The workflow only reads the repository. Nothing here needs a token that can
+# write, and a job that cannot write cannot be talked into writing.
+permissions:
+  contents: read
+
+# A second push to a pull request makes the first run's answer irrelevant.
+# Runs on `main` are left alone: each one is the record for a commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, types, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          # Pinned for the same reason the dependencies are locked: a uv
+          # release should not be able to change what this workflow does
+          # without a commit saying so.
+          version: "0.12.10"
+
+      # Also the lockfile check. `--locked` fails rather than re-resolving if
+      # `uv.lock` and `pyproject.toml` have drifted apart, which is the failure
+      # a reviewer cannot see by reading the diff. Python 3.14 is fetched here
+      # too, from `.python-version` (ADR 0002).
+      - name: Install the locked dependency set
+        run: uv sync --locked --all-groups
+
+      # `!cancelled()` on every check after the first: a lint failure must not
+      # hide whether the types and tests were also broken. One run should
+      # report everything that is wrong, not the first thing.
+      - name: Lint (ruff check)
+        run: uv run ruff check
+
+      - name: Format (ruff format --check)
+        if: ${{ !cancelled() }}
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy --strict)
+        if: ${{ !cancelled() }}
+        run: uv run mypy
+
+      - name: Tests (pytest)
+        if: ${{ !cancelled() }}
+        run: uv run pytest

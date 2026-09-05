@@ -21,6 +21,7 @@
 ```mermaid
 flowchart TD
     P0["Phase 0<br/>Toolchain scaffold"]
+    U02["0.2 CI pipeline<br/>lint, format, types, tests"]
 
     subgraph PH1["Phase 1 — Domain"]
         direction TB
@@ -68,13 +69,13 @@ flowchart TD
         direction TB
         U74["7.4 ADRs<br/>continuous, already under way"]
         U73["7.3 README"]
-        U71["7.1 CI pipeline"]
         U72["7.2 Public deployment"]
     end
 
     GATE{{"GATE<br/>Public URL + green CI<br/>retrieval repo may not start before this"}}
     P13["Phase 13<br/>Security hardening"]
 
+    P0 --> U02
     P0 --> U12 --> U11
     U11 --> U13
     U11 --> U14
@@ -102,10 +103,10 @@ flowchart TD
     U45 --> U61 --> U62
     U45 --> U63
 
-    U62 --> U71
-    U63 --> U71
+    U02 --> U62
     U52 --> U72
-    U71 --> U72
+    U63 --> U72
+    U02 --> GATE
     U72 --> GATE
     U73 --> GATE
     U74 --> GATE
@@ -141,7 +142,7 @@ Anything with **no arrow between it** can be worked on at the same time.
 | **2.1**, **2.2** and **2.3** | The three use cases share the ports but never call each other. |
 | **4.4 HTTP layer** and **4.1 → 4.2 → 4.3** | The web layer talks only to the use cases; the storage chain only to the database. They meet for the first time at 4.5. This is the longest parallel stretch in the repository. |
 | **Phase 5 containers** and **Phase 6 quality** | The integration tests start their own throwaway containers; they do not need the production image to exist. |
-| **7.3 README** and **7.4 ADRs** and **everything** | Neither depends on code. 7.4 is already under way — five ADRs are written. |
+| **7.3 README** and **7.4 ADRs** and **everything** | Neither depends on code. 7.4 is already under way — eight ADRs are written. |
 | **`[+]` migration tool** and **`[+]` logging** and **Phases 1–2** | Both are decisions, not code. Making them while the domain is being written costs nothing and unblocks Phase 4 the moment it starts. |
 
 ## What blocks the most
@@ -168,6 +169,8 @@ Phase 3".
 ## What each box means, in plain language
 
 **Phase 0 — Toolchain scaffold.** Set up the workshop before making anything. This means installing the tools that check the work — one that catches sloppy writing, one that catches mistakes about what kind of thing each value is, one that runs the tests — and proving all three run and pass on an empty project. It goes first because these tools are painless to adopt when there is nothing to fix and painful to adopt once there is.
+
+**0.2 — CI pipeline.** Set up a robot that runs every check on every proposed change, on a machine that has never seen the author's, so nothing broken can be merged by accident or optimism. Until this exists, every claim that the checks pass is made by the person who wants the change merged.
 
 **1.1 — Value objects.** Define the small, precise things a document is described by: its identifier, a fingerprint of its contents, and the labels attached to it — which library it documents, which version, what kind of page it is, where it came from. The point is that an invalid one cannot be created at all: there is no such thing as a half-formed fingerprint sitting around waiting to cause trouble later.
 
@@ -209,13 +212,11 @@ Phase 3".
 
 **6.3 — Secrets via environment.** Make sure no password, key or connection string is written down anywhere in the repository, and provide an example file showing which ones a deployment needs to supply.
 
-**7.1 — CI pipeline.** Set up a robot that runs every check on every proposed change, so nothing broken can be merged by accident or optimism.
-
 **7.2 — Public deployment.** Put the service on the internet at an address anyone can send a document to.
 
 **7.3 — README.** Write the explanation someone reads cold, having never seen the repository, and comes away understanding what it does and why it is built this way.
 
-**7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — five are written.
+**7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — eight are written.
 
 **GATE.** A public address that accepts documents, with all checks green. **The retrieval repository is not created until this is true.** The rule exists because two half-finished services are worth less than one finished one.
 
@@ -231,6 +232,20 @@ Two items the roadmap did not name. Neither is large; both are cheap now and awk
 |---|---|---|
 | **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. | Before 4.1 |
 | **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. | Before 4.5 |
+
+### A dependency this plan had backwards
+
+The original diagram drew **6.2 coverage** and **6.3 secrets** as prerequisites
+of the CI pipeline. That was wrong in both cases, and wrong in a way that cost
+something: it parked CI behind two units that themselves sit behind the whole of
+Phase 4, so seventeen pull requests merged with nothing checking them.
+
+Coverage is *reported by* a pipeline, so it needs one to exist first — the arrow
+runs the other way, and now does. Secrets never blocked CI at all; they block
+deployment, which is where that arrow now points. What the CI pipeline actually
+needs is the toolchain that defines the checks, and nothing else. It has been
+moved to Phase 0 as **0.2** and built. See ADR 0008 and the note in
+`ROADMAP.md`.
 
 Two further gaps belong to the other repositories and are recorded here only so they are not lost: the **contracts repository needs its own toolchain scaffold** before Phase 3, and **somebody has to actually collect the corpus** — the roadmap chose what it is but never scheduled gathering it, and the retrieval repository's evaluation phase cannot happen without it.
 

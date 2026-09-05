@@ -1,5 +1,7 @@
 # devtools-rag-ingestion
 
+[![CI](https://github.com/1dardo1/devtools-rag-ingestion/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/1dardo1/devtools-rag-ingestion/actions/workflows/ci.yml)
+
 The write path of the Devtools RAG system: accepts technical documents, enforces
 domain rules, stores them, and publishes an event when a document is ready to be
 indexed.
@@ -59,12 +61,18 @@ Requires [`uv`](https://docs.astral.sh/uv/), which installs Python 3.14 itself
 if the machine does not have it.
 
 ```bash
-uv sync                       # create the environment and install the package
-uv run ruff check .           # lint
-uv run ruff format --check .  # formatting
-uv run mypy                   # strict types, over src and tests
-uv run pytest                 # tests
+uv sync --locked --all-groups  # install exactly what uv.lock names, dev tools too
+uv run ruff check              # lint
+uv run ruff format --check .   # formatting
+uv run mypy                    # strict types, over src and tests
+uv run pytest                  # tests
 ```
+
+These five commands are exactly what CI runs, in this order, on every pull
+request and every push to `main` — see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) and
+[ADR 0008](docs/adr/0008-continuous-integration.md). If they pass here and fail
+there, the difference is machine state, not the code.
 
 `uv sync` is not optional before `uv run pytest`. Under the src layout the
 suite imports the *installed* package rather than the source tree, so a bare

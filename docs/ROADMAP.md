@@ -7,9 +7,18 @@ Phases run in order. Each leaves the repository in a working, committable state.
 | # | Unit | Done when |
 |---|------|-----------|
 | 0.1 | Scaffold: `src/` layout, `uv`, `ruff`, strict `mypy`, `pytest` | Lint, type check and one trivial test pass |
+| 0.2 | CI: lint, format, types and tests on every change | Badge green on `main` |
 
 **Why first:** strict typing enforced from commit one. Adding it later means
 fixing hundreds of errors at once.
+
+**0.2 was numbered 7.1 in the original plan, and that was a mistake.** Running
+the checks needs nothing but the checks, so it belongs beside the scaffold that
+configures them rather than eight phases away. Configuring a tool and never
+running it automatically is a policy without a mechanism: seventeen pull
+requests merged with every check self-certified by their author. See ADR 0008.
+The Phase 7 slot is left empty rather than renumbered, so existing references
+to 7.2, 7.3 and 7.4 keep pointing at the same units.
 
 ## Phase 1 — Domain
 
@@ -79,10 +88,12 @@ piece of engineering in this service.
 
 | # | Unit | Done when |
 |---|------|-----------|
-| 7.1 | GitHub Actions: lint, types, tests | Badge green on `main` |
 | 7.2 | Public deployment | A public URL accepts documents |
 | 7.3 | English README with architecture rationale | Readable by someone who has never seen the repo |
 | 7.4 | ADRs committed | Every non-obvious decision recorded |
+
+> **7.1 moved to Phase 0 as 0.2** and is done. The slot is left empty on
+> purpose; see the note there.
 
 > **HARD GATE.** The retrieval repository is not created until this phase is
 > complete.
