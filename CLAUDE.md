@@ -43,6 +43,12 @@ adapters, with the dependency arrow pointing inward.
 - The `domain/` package imports nothing external. No FastAPI, no SQLAlchemy, no
   Redis client. If an external type seems necessary, a port is missing.
 - Ports are `typing.Protocol`, not abstract base classes.
+- **Ports, use cases and adapters are synchronous.** FastAPI is async-native, so
+  `async def` is the reflex; it was examined and rejected in ADR 0007. Endpoints
+  are declared `def`. Bridging with `asyncio.run()` inside a request is a defect,
+  not a compromise.
+- Time is a port. Nothing in the domain calls `datetime.now()`; the instant is
+  supplied by a `Clock`, so a test can name the moment it expects.
 - The document and its outbox row are written in **the same transaction**. This
   is the single most important invariant in the service. A change that splits
   them is a defect, however clean it looks.
@@ -53,13 +59,37 @@ adapters, with the dependency arrow pointing inward.
 
 ## Current phase
 
-**Phase 0 — Environment.** Nothing built yet.
+**Phase 2 — Use cases.** Phases 0 and 1 are complete and merged.
 
-Next unit of work: project scaffold with `src/` layout, `uv`, `ruff`, strict
-`mypy`, `pytest`. Done when lint, type check and one trivial test all pass.
+Done so far:
+
+- **Phase 0.** Scaffold on Python 3.14 with `uv`, `ruff` (23 rule families),
+  `mypy --strict` over `src` and `tests`, and `pytest`. CI runs all four on
+  every pull request and every push to `main`; `main` is protected and the
+  check is required.
+- **Phase 1.** The domain: 14 modules, zero external imports, 132 tests. Value
+  objects, entities, the ingestion rules, the `DocumentIngested` event, and the
+  four ports (`DocumentRepository`, `CollectionRepository`, `EventPublisher`,
+  `Clock`).
+- Eight ADRs, in `docs/adr/`.
+
+Next unit of work: **2.1 `IngestDocument`** — the use case that runs the three
+policy checks against the repository's answers, stores the document and
+publishes the event. Done when it runs end to end against in-memory fakes with
+no infrastructure present.
+
+Two questions were deliberately deferred out of Phase 1 and are due here:
+whether `Document` needs a `created_at`, and whether `EventPublisher` receives a
+built event or stamps `occurred_at` itself.
+
+**Keep this section current.** It is the first thing a new session reads, and a
+stale one sends the work in the wrong direction.
 
 ## The gate
 
 This service must be **deployed with a public URL and green CI** before the
 retrieval repository is created. If progress stalls, the correct response is to
 finish this service, not to start the next one.
+
+Green CI is done (`ROADMAP.md` 0.2). The public URL is not, and it is the only
+half of the gate still open.
