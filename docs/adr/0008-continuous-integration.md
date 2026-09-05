@@ -121,9 +121,16 @@ makes a stale-cache result impossible to mistake for a real one. `ROADMAP.md`
 7.1's completion criterion becomes reachable, and the hard gate in `CLAUDE.md`
 — a public URL and green CI — loses one of its two blockers.
 
-**Negative.** Feedback moves from seconds to minutes: the suite runs in 0.16
-seconds locally, and a CI round trip is dominated by the checkout, the uv
-install and the Python download. Pinned SHAs do not update themselves, so the
+**Negative.** Feedback is slower than running the checks locally, though by
+much less than expected: the first run of this workflow took **16 seconds** end
+to end, 12 of them inside the job. That is cheap enough that it is not a reason
+to skip anything, and the estimate this record originally carried — minutes,
+dominated by the checkout and the Python download — was simply wrong and has
+been corrected against the measurement. It will grow when Phase 6 brings
+integration tests that start real containers; the number above is a floor for a
+pure-domain suite, not a promise.
+
+Pinned SHAs do not update themselves, so the
 actions will silently rot until someone bumps them deliberately — the honest
 cost of refusing a movable pointer, and worth revisiting if it turns into
 neglect rather than discipline. A single job means a failure in the sync step
