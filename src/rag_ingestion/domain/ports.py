@@ -45,7 +45,7 @@ class Clock(Protocol):
     """
 
     def now(self) -> datetime:
-        """The current instant, with a timezone attached."""
+        """Return the current instant, with a timezone attached."""
         ...
 
 

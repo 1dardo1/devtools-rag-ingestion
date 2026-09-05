@@ -59,15 +59,15 @@ class Document:
             raise NegativeDocumentSizeError(self.size_in_bytes)
 
     def start_processing(self) -> None:
-        """The retrieval service has picked this document up."""
+        """Record that the retrieval service has picked this document up."""
         self._transition_to(DocumentStatus.PROCESSING)
 
     def mark_indexed(self) -> None:
-        """Indexing succeeded and the document is answerable."""
+        """Record that indexing succeeded and the document is answerable."""
         self._transition_to(DocumentStatus.INDEXED)
 
     def mark_failed(self) -> None:
-        """Indexing did not succeed.
+        """Record that indexing did not succeed.
 
         Terminal, matching the state machine `ARCHITECTURE.md` fixes. A failed
         document is recovered by submitting it again, not by reviving this one:

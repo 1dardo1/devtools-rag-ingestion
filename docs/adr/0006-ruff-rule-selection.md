@@ -1,7 +1,7 @@
 # 6. Select `ruff` rules deliberately rather than by default or in bulk
 
 - **Status:** Accepted
-- **Last revised:** 2026-08-30
+- **Last revised:** 2026-09-05
 
 ## Context
 
@@ -35,11 +35,11 @@ adopting a catalogue unexamined:
 
 - **`select = ["ALL"]` with exclusions.** Maximum coverage by definition.
   Rejected on three counts: `ALL` contains mutually contradictory families
-  (`D` enforces two incompatible docstring conventions at once), it includes
-  families that conflict with decisions above, and every `ruff` upgrade can add
-  rules that break CI without a line of code changing. In practice it produces
-  a long `ignore` list nobody revisits, which is the opposite of a deliberate
-  selection.
+  (`D` selects two mutually exclusive pairs of rules unless a convention is
+  named — see below), it includes families that conflict with decisions above,
+  and every `ruff` upgrade can add rules that break CI without a line of code
+  changing. In practice it produces a long `ignore` list nobody revisits, which
+  is the opposite of a deliberate selection.
 
 - **A selected set, justified family by family.** Chosen. It is the only option
   where each rule can be defended individually, which is what
@@ -52,11 +52,16 @@ adopting a catalogue unexamined:
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "S", "A", "C4", "DTZ", "T20",
-          "SIM", "RUF", "PT", "TID", "PTH", "TRY", "LOG", "G", "ARG", "EM"]
+select = ["E", "W", "F", "I", "N", "UP", "B", "S", "A", "C4", "D", "DTZ",
+          "T20", "SIM", "RUF", "PT", "TID", "PTH", "TRY", "LOG", "G", "ARG",
+          "EM"]
+ignore = ["D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ARG001", "ARG002"]
+"tests/**" = ["S101", "ARG001", "ARG002", "D"]
 ```
 
 Families that earn their place for reasons specific to this service, rather
@@ -80,10 +85,11 @@ long single-token line such as a URL is not reported, and only a long
 usually a signal that the text belongs somewhere else.
 
 Excluded deliberately: `ANN`, `TC`, `COM`, `ISC` for the reasons in the context
-above; `D` (docstrings) because it would demand a docstring on every function
-from the first commit, and it is better judged against real code at the end of
-Phase 1; `RET`, `FBT`, `ERA` and `PL` as opinionated or noisy relative to what
+above; `RET`, `FBT`, `ERA` and `PL` as opinionated or noisy relative to what
 they contribute here.
+
+`D` was excluded at first and admitted at the end of Phase 1, once there was
+real code to judge it against. See below.
 
 ### `TRY` and `EM` were checked against realistic code, not assumed
 
@@ -107,8 +113,8 @@ raised with a string **literal** is still flagged, even though the literal is
 an argument rather than a message.
 
 ```python
-raise MissingMetadataFieldError("source_library")   # EM101
-raise MissingMetadataFieldError(field_name)         # not flagged
+raise MissingMetadataFieldError("source_library")  # EM101
+raise MissingMetadataFieldError(field_name)  # not flagged
 ```
 
 The rule is satisfied by passing a variable, which in practice means hoisting
@@ -146,15 +152,71 @@ instead, where both legitimate cases live, and left active in `src/`.
 
 `S101` is likewise disabled under `tests/**`: `assert` is pytest's mechanism.
 
+### `D` was deferred to the end of Phase 1, then measured
+
+`D` was held back from the first commit for one reason: it would have demanded
+a docstring on every function before there was any code to judge whether the
+demand was reasonable. Phase 1 finished with fourteen domain modules and 132
+tests, and the family was run against them rather than argued about.
+
+| Rule | `src/` | `tests/` |
+|---|---|---|
+| `D100` module without a docstring | **0** | **0** |
+| `D101`/`D102`/`D103` public class, method, function | **0** | 86 |
+| `D2xx` formatting, `D4xx` punctuation | **0** | 0 |
+| `D105` magic method | 13 | 0 |
+| `D107` `__init__` | 13 | 4 |
+| `D401` non-imperative summary | 2 | 0 |
+
+The finding that decided it: **`src/` already satisfied every expensive rule**
+— the ones that require writing documentation — without the linter ever having
+run. `D` therefore corrects nothing today. It is enabled as a ratchet for
+Phases 2 to 13, where the cost of adding it later is the cost of fixing every
+violation at once.
+
+`convention = "pep257"` is not optional. Without it `ruff` reports:
+
+```
+warning: D203 and D211 are incompatible. Ignoring D203.
+warning: D212 and D213 are incompatible. Ignoring D213.
+```
+
+Naming the convention makes that choice deliberate instead of incidental, and
+it is the same objection that ruled out `select = ["ALL"]` above.
+
+Two rules are switched off, each for a reason rather than for volume:
+
+- **`D105`** (magic methods) — the 13 sites are `__post_init__`, `__eq__`,
+  `__hash__` and `__str__`. What they do is defined by Python; a docstring
+  there restates the language.
+- **`D107`** (`__init__`) — the 13 sites are the domain exceptions in
+  `errors.py`. Each is a single `super().__init__(f"...")` under a class that
+  already carries a `Raised when …` docstring. The rule would produce a copy of
+  the line above it.
+
+`D401` is kept, and it earned its place immediately: it caught the only three
+docstrings in `src/` written as statements rather than as instructions — the
+state transitions on `Document`. The other fifteen already began *Mint*,
+*Rebuild*, *Fingerprint*, *Reject*, *Announce*, *Store*, *Retrieve*, *Count*.
+The rule found a genuine inconsistency in one class, not a style preference.
+
+`tests/**` is exempt from the family entirely. A test here is named as a
+sentence — `test_content_present_in_another_collection_does_not_count_as_present`
+— and a mandatory docstring would restate that name in prose for all 132. The
+tests that carry a docstring carry it because there was a reason to record, and
+that stays voluntary.
+
 ## Consequences
 
 **Positive.** Every family can be justified individually, which is the standard
-this repository holds decisions to. The set catches real defects rather than
-style alone — mutable default arguments, naive datetimes, security findings,
-stray `print` calls — and it does so from the first commit, when the cost of
-compliance is zero. `TID` turns a hexagonal boundary violation into something
-visible in an import line. `TRY` and `EM` push exception design toward named
-domain errors before any exception exists to migrate.
+this repository holds decisions to. `D` in particular was admitted on evidence
+rather than on principle, after the code existed to produce it. The set catches
+real defects rather than style alone — mutable default arguments, naive
+datetimes, security findings, stray `print` calls — and it does so from the
+first commit, when the cost of compliance is zero. `TID` turns a hexagonal
+boundary violation into something visible in an import line. `TRY` and `EM`
+push exception design toward named domain errors before any exception exists to
+migrate.
 
 **Negative.** The list has to be maintained and understood; it is more
 configuration to read than a default. `S` and `PTH` are large families and some
@@ -162,6 +224,12 @@ of their findings will be mechanical rather than meaningful. `TRY003` in
 particular is among the more contested rules in the ecosystem, and it will
 force a named exception class in cases where an inline message would have been
 enough.
+
+Ignoring `D105` and `D107` globally is broader than the cases that justify it.
+Both were judged against the domain layer, where every magic method is a
+dataclass or identity method and every `__init__` is an exception constructor.
+An adapter in Phase 4 with a genuinely complex `__init__` will go undocumented
+without the linter saying so.
 
 Suppressing `ARG001` and `ARG002` across `tests/**` is broader than the two
 cases that justify it: a genuinely forgotten parameter in a test helper will now

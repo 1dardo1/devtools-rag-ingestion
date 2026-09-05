@@ -29,13 +29,14 @@ dev = [
 [tool.ruff]
 target-version = "py314"
 
-# ADR 0006: twenty-two rule families, chosen individually.
+# ADR 0006: twenty-three rule families, chosen individually.
 [tool.ruff.lint]
 select = [
     "A",    # flake8-builtins — shadowed builtins
     "ARG",  # flake8-unused-arguments
     "B",    # flake8-bugbear — real defects, not style
     "C4",   # flake8-comprehensions
+    "D",    # pydocstyle — docstrings; see ADR 0006 for the two exclusions
     "DTZ",  # flake8-datetimez — naive datetimes reach PostgreSQL
     "E",    # pycodestyle errors
     "EM",   # flake8-errmsg
@@ -56,12 +57,24 @@ select = [
     "W",    # pycodestyle warnings
 ]
 
+# D105: a magic method's contract is defined by Python, not by this codebase.
+# D107: every domain exception's `__init__` is one `super().__init__(f"...")`
+# line under a class that already carries its own docstring.
+ignore = ["D105", "D107"]
+
+# Not optional: without it `D` selects two mutually exclusive pairs
+# (D203/D211 and D212/D213) and `ruff` silences one of each with a warning.
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
 [tool.ruff.lint.per-file-ignores]
 # S101: `assert` is pytest's mechanism.
 # ARG001/ARG002: fakes implementing a Protocol legitimately ignore parameters
 # the port declares, and fixtures are requested for their side effects. See
 # ADR 0006 for why renaming the parameter is not an acceptable workaround.
-"tests/**" = ["S101", "ARG001", "ARG002"]
+# D: a test's name is already its sentence. Docstrings stay welcome here for
+# the ones that need a reason, but are not demanded of all 132.
+"tests/**" = ["S101", "ARG001", "ARG002", "D"]
 
 # ADR 0005: strict, over src and tests, with the three gaps closed.
 [tool.mypy]
