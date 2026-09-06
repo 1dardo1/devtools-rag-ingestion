@@ -68,7 +68,7 @@ class DocumentIngested:
         be told.
 
         The domain still reads no clock: the instant reached the document from
-        the `Clock` port, and the event follows the document.
+        the `Clock` port, and the event follows the document. See ADR 0009.
         """
         return cls(
             document_id=document.document_id,
