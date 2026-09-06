@@ -94,6 +94,20 @@ class CollectionFullError(DomainError):
         )
 
 
+class CollectionNotFoundError(DomainError):
+    """Raised when a document is submitted to a collection that does not exist.
+
+    Not a `None` return like `CollectionRepository.get`: asking after a
+    collection that may not exist is an ordinary lookup, but *ingesting into*
+    one that does not exist is a caller error. Left unchecked it would pass,
+    because `count_in_collection` answers zero for a collection nobody created
+    and every rule would then be satisfied.
+    """
+
+    def __init__(self, collection_id: str) -> None:
+        super().__init__(f"There is no collection {collection_id}")
+
+
 class DuplicateDocumentError(DomainError):
     """Raised when a collection already holds this exact content."""
 
