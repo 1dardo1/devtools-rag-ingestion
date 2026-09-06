@@ -37,11 +37,10 @@ class Clock(Protocol):
     returns a fixed instant, and the assertion becomes an equality.
 
     Not named in `ROADMAP.md` 1.5, which lists only `DocumentRepository` and
-    `EventPublisher`. It is needed because `DocumentIngested` carries
-    `occurred_at` and something has to produce it. The alternative — having the
-    HTTP layer pass the instant in — was rejected: it moves a domain concern
-    outside the application boundary and makes every caller responsible for
-    remembering that the instant must carry a timezone.
+    `EventPublisher`. **ADR 0009 records why it exists anyway**, along with the
+    alternatives rejected and the rule that follows from it: the clock is read
+    once per ingestion, and that one instant reaches both the document and the
+    event.
     """
 
     def now(self) -> datetime:
@@ -59,8 +58,15 @@ class DocumentRepository(Protocol):
     index instead of the application loading rows to count them.
     """
 
-    def add(self, document: Document) -> None:
-        """Store a document that has passed every rule."""
+    def add(self, document: Document, content: bytes) -> None:
+        """Store a document that has passed every rule, with its content.
+
+        The bytes travel as an argument because `Document` deliberately does
+        not hold them, and they are written in the same call as the record so
+        that an adapter binds both to one transaction without being asked to.
+        A record whose content was never stored is the same class of failure
+        the outbox exists to prevent, one table over.
+        """
         ...
 
     def get(self, document_id: DocumentId) -> Document | None:

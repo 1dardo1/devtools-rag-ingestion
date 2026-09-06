@@ -58,7 +58,8 @@ class Document:
 
     No rule reads it, and it earns its place anyway — for the same reason
     `metadata` does. Both carry what a caller needs to be told, and 2.3
-    `GetIngestionStatus` cannot answer "when" from a status enum alone.
+    `GetIngestionStatus` cannot answer "when" from a status enum alone. ADR
+    0009 records this and the rest of how time enters the service.
     """
 
     document_id: DocumentId

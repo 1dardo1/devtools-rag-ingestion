@@ -33,9 +33,11 @@ from rag_ingestion.domain.ports import (
 class InMemoryDocumentRepository:
     def __init__(self) -> None:
         self.documents: dict[DocumentId, Document] = {}
+        self.content: dict[DocumentId, bytes] = {}
 
-    def add(self, document: Document) -> None:
+    def add(self, document: Document, content: bytes) -> None:
         self.documents[document.document_id] = document
+        self.content[document.document_id] = content
 
     def get(self, document_id: DocumentId) -> Document | None:
         return self.documents.get(document_id)
@@ -128,9 +130,9 @@ def test_a_collection_counts_only_its_own_documents() -> None:
     repository = InMemoryDocumentRepository()
     mine = CollectionId.generate()
     theirs = CollectionId.generate()
-    repository.add(a_document(collection_id=mine))
-    repository.add(a_document(collection_id=mine))
-    repository.add(a_document(collection_id=theirs))
+    repository.add(a_document(collection_id=mine), b"x")
+    repository.add(a_document(collection_id=mine), b"x")
+    repository.add(a_document(collection_id=theirs), b"x")
 
     assert repository.count_in_collection(mine) == 2
 
@@ -139,7 +141,10 @@ def test_content_present_in_another_collection_does_not_count_as_present() -> No
     """Deduplication is scoped to the collection; collections must not leak."""
     repository = InMemoryDocumentRepository()
     content = ContentHash.of(b"shared page")
-    repository.add(a_document(collection_id=CollectionId.generate(), content=content))
+    repository.add(
+        a_document(collection_id=CollectionId.generate(), content=content),
+        b"shared page",
+    )
 
     assert not repository.exists_with_content_hash(CollectionId.generate(), content)
 
