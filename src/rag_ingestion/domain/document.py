@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Final
 
 from rag_ingestion.domain.collection_id import CollectionId
@@ -10,9 +11,12 @@ from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.document_status import DocumentStatus
 from rag_ingestion.domain.errors import (
     IllegalStatusTransitionError,
+    NaiveTimestampError,
     NegativeDocumentSizeError,
 )
 from rag_ingestion.domain.metadata import Metadata
+
+_INGESTED_AT = "ingested_at"
 
 _ALLOWED_TRANSITIONS: Final[Mapping[DocumentStatus, frozenset[DocumentStatus]]] = {
     DocumentStatus.PENDING: frozenset({DocumentStatus.PROCESSING}),
@@ -45,6 +49,16 @@ class Document:
     stored document in whatever state it was left in; business logic that
     assigns to it directly is bypassing the rules, and review is what catches
     that.
+
+    `ingested_at` is the moment this service took responsibility, not the
+    moment the document was written anywhere. It is supplied rather than read:
+    the domain owns no clock, so the use case reads the `Clock` port once and
+    passes the same instant here and to `DocumentIngested`, which makes the
+    record and the announcement agree by construction rather than by luck.
+
+    No rule reads it, and it earns its place anyway — for the same reason
+    `metadata` does. Both carry what a caller needs to be told, and 2.3
+    `GetIngestionStatus` cannot answer "when" from a status enum alone.
     """
 
     document_id: DocumentId
@@ -52,11 +66,14 @@ class Document:
     content_hash: ContentHash
     size_in_bytes: int
     metadata: Metadata
+    ingested_at: datetime
     status: DocumentStatus = field(default=DocumentStatus.PENDING)
 
     def __post_init__(self) -> None:
         if self.size_in_bytes < 0:
             raise NegativeDocumentSizeError(self.size_in_bytes)
+        if self.ingested_at.tzinfo is None:
+            raise NaiveTimestampError(_INGESTED_AT)
 
     def start_processing(self) -> None:
         """Record that the retrieval service has picked this document up."""

@@ -1,6 +1,7 @@
 """A document moves forwards through its stages, and only forwards."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import pytest
 
@@ -13,6 +14,8 @@ from rag_ingestion.domain.document_status import DocumentStatus
 from rag_ingestion.domain.errors import DomainError, IllegalStatusTransitionError
 from rag_ingestion.domain.metadata import Metadata
 
+INGESTED_AT = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
+
 
 def a_document(status: DocumentStatus = DocumentStatus.PENDING) -> Document:
     return Document(
@@ -21,6 +24,7 @@ def a_document(status: DocumentStatus = DocumentStatus.PENDING) -> Document:
         content_hash=ContentHash.of(b"redis streams consumer groups"),
         size_in_bytes=29,
         metadata=Metadata(source_library="redis", doc_type=DocType.REFERENCE),
+        ingested_at=INGESTED_AT,
         status=status,
     )
 

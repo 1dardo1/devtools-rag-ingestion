@@ -1,5 +1,7 @@
 """A document is the same document however much of it changes."""
 
+from datetime import UTC, datetime, timedelta, timezone
+
 import pytest
 
 from rag_ingestion.domain.collection_id import CollectionId
@@ -8,8 +10,14 @@ from rag_ingestion.domain.doc_type import DocType
 from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.document_status import DocumentStatus
-from rag_ingestion.domain.errors import DomainError, NegativeDocumentSizeError
+from rag_ingestion.domain.errors import (
+    DomainError,
+    NaiveTimestampError,
+    NegativeDocumentSizeError,
+)
 from rag_ingestion.domain.metadata import Metadata
+
+INGESTED_AT = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
 
 def a_document(
@@ -17,6 +25,7 @@ def a_document(
     collection_id: CollectionId | None = None,
     content: bytes = b"FastAPI dependency injection",
     size_in_bytes: int = 28,
+    ingested_at: datetime | None = None,
 ) -> Document:
     return Document(
         document_id=document_id or DocumentId.generate(),
@@ -24,6 +33,7 @@ def a_document(
         content_hash=ContentHash.of(content),
         size_in_bytes=size_in_bytes,
         metadata=Metadata(source_library="fastapi", doc_type=DocType.API_REFERENCE),
+        ingested_at=ingested_at or INGESTED_AT,
     )
 
 
@@ -86,3 +96,36 @@ def test_a_document_cannot_occupy_fewer_than_zero_bytes(size_in_bytes: int) -> N
 def test_the_rejection_is_a_domain_error() -> None:
     with pytest.raises(DomainError):
         a_document(size_in_bytes=-1)
+
+
+def test_a_document_remembers_when_it_was_ingested() -> None:
+    """2.3 `GetIngestionStatus` answers "when", and this is where it reads it."""
+    assert a_document().ingested_at == INGESTED_AT
+
+
+def test_a_naive_ingestion_instant_is_refused() -> None:
+    """A timestamp without a timezone is ambiguous the moment it is stored."""
+    with pytest.raises(NaiveTimestampError, match="ingested_at"):
+        a_document(ingested_at=datetime(2026, 8, 30, 9, 15))  # noqa: DTZ001
+
+
+def test_the_naive_instant_refusal_is_a_domain_error() -> None:
+    with pytest.raises(DomainError):
+        a_document(ingested_at=datetime(2026, 8, 30, 9, 15))  # noqa: DTZ001
+
+
+def test_a_non_utc_instant_is_accepted() -> None:
+    """The rule is that an instant carries a zone, not that the zone is UTC."""
+    madrid = datetime(2026, 8, 30, 11, 15, tzinfo=timezone(timedelta(hours=2)))
+
+    assert a_document(ingested_at=madrid).ingested_at == INGESTED_AT
+
+
+def test_moving_a_document_on_does_not_change_when_it_was_ingested() -> None:
+    """Ingestion happened once; indexing later does not rewrite that fact."""
+    document = a_document()
+
+    document.start_processing()
+    document.mark_indexed()
+
+    assert document.ingested_at == INGESTED_AT

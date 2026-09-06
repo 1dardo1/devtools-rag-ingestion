@@ -29,6 +29,7 @@ def a_document() -> Document:
             library_version="1.12",
             source_url="https://qdrant.tech/documentation/concepts/hybrid-queries/",
         ),
+        ingested_at=AN_INSTANT,
     )
 
 
