@@ -153,4 +153,5 @@ def a_document(
         content_hash=content or ContentHash.of(b"pytest parametrize"),
         size_in_bytes=18,
         metadata=Metadata(source_library="pytest", doc_type=DocType.HOW_TO),
+        ingested_at=datetime(2026, 8, 30, 9, 15, tzinfo=UTC),
     )
