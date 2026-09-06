@@ -50,18 +50,30 @@ class DocumentIngested:
             raise NaiveTimestampError(_OCCURRED_AT)
 
     @classmethod
-    def about(cls, document: Document, occurred_at: datetime) -> Self:
+    def about(cls, document: Document) -> Self:
         """Announce a document that has just been accepted.
 
-        The instant is supplied rather than read from the clock here: a domain
-        object that calls `datetime.now()` cannot be tested without freezing
-        time, and reading a clock is I/O wearing a disguise. Phase 2 decides
-        where the instant comes from.
+        **`occurred_at` is taken from the document, not passed in.** The fact
+        this event describes is the ingestion, and `Document.ingested_at` is
+        when that happened, so there is exactly one value and no way for the
+        record and the announcement to disagree. Accepting an instant here
+        would let a caller announce a moment the document never claimed, and
+        no type checker could object.
+
+        It also fixes what the timestamp means once the outbox exists. The
+        relay in 4.3 publishes a stored row later — a second later, or twenty
+        minutes later if the broker was down. Stamping at publication would
+        make the event say the document arrived when the queue drained.
+        `occurred_at` answers when it happened, never when it was managed to
+        be told.
+
+        The domain still reads no clock: the instant reached the document from
+        the `Clock` port, and the event follows the document.
         """
         return cls(
             document_id=document.document_id,
             collection_id=document.collection_id,
             content_hash=document.content_hash,
             metadata=document.metadata,
-            occurred_at=occurred_at,
+            occurred_at=document.ingested_at,
         )
