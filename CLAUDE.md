@@ -59,28 +59,39 @@ adapters, with the dependency arrow pointing inward.
 
 ## Current phase
 
-**Phase 2 — Use cases.** Phases 0 and 1 are complete and merged.
+**Phase 2 is complete.** Phases 0, 1 and 2 are merged.
 
 Done so far:
 
 - **Phase 0.** Scaffold on Python 3.14 with `uv`, `ruff` (23 rule families),
   `mypy --strict` over `src` and `tests`, and `pytest`. CI runs all four on
-  every pull request and every push to `main`; `main` is protected and the
-  check is required.
-- **Phase 1.** The domain: 14 modules, zero external imports, 132 tests. Value
-  objects, entities, the ingestion rules, the `DocumentIngested` event, and the
-  four ports (`DocumentRepository`, `CollectionRepository`, `EventPublisher`,
+  every pull request and every push to `main`; `main` is protected by a ruleset
+  and the check is required.
+- **Phase 1.** The domain: 14 modules, zero external imports. Value objects,
+  entities, the ingestion rules, the `DocumentIngested` event, and the four
+  ports (`DocumentRepository`, `CollectionRepository`, `EventPublisher`,
   `Clock`).
-- Eight ADRs, in `docs/adr/`.
+- **Phase 2.** The three use cases — `IngestDocument`, `CreateCollection`,
+  `GetIngestionStatus` — running end to end against in-memory fakes with no
+  infrastructure present. `tests/unit/application/test_phase_two_together.py`
+  composes all three and is the phase's completion criterion in one file.
+- Nine ADRs, in `docs/adr/`. 179 tests.
 
-Next unit of work: **2.1 `IngestDocument`** — the use case that runs the three
-policy checks against the repository's answers, stores the document and
-publishes the event. Done when it runs end to end against in-memory fakes with
-no infrastructure present.
+**Next: Phase 3, and it happens in `devtools-rag-contracts`, not here.** It
+turns the `DocumentIngested` shape agreed in 1.4 into the published schema.
+Return here afterwards for Phase 4.
 
-Two questions were deliberately deferred out of Phase 1 and are due here:
-whether `Document` needs a `created_at`, and whether `EventPublisher` receives a
-built event or stamps `occurred_at` itself.
+Two decisions are due before Phase 4 starts, both recorded as `[+]` items in
+`docs/BUILD-PLAN.md` and both cheap now:
+
+- **A migration tool**, before 4.1. Note that it depends on a prior choice
+  nobody has made: **whether the PostgreSQL adapter uses an ORM or raw SQL.**
+  Nothing in the documentation decides this — the domain is forbidden from
+  importing SQLAlchemy, but that is a rule about a layer, not a choice of
+  technology for the adapters. Alembic is the natural answer with SQLAlchemy
+  and the wrong one without it, so settle the adapter first.
+- **Logging and error reporting**, before 4.5. The relay in 4.3 runs
+  unattended, where silence and success look identical.
 
 **Keep this section current.** It is the first thing a new session reads, and a
 stale one sends the work in the wrong direction.
