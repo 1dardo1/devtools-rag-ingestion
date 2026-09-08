@@ -105,6 +105,25 @@ class CollectionRepository(Protocol):
         """Retrieve a collection, or `None` when there is no such collection."""
         ...
 
+    def exists_with_name(self, name: str) -> bool:
+        """Answer whether a collection already goes by this name.
+
+        A question, not a haystack — the same shape as
+        `DocumentRepository.exists_with_content_hash`, and for the same reason:
+        the database answers it with an index instead of the application
+        loading every collection to look.
+
+        The name arrives already stripped, because `Collection` normalises it
+        on construction and the use case asks with the normalised value.
+
+        **This is the legibility half of the rule, not the guarantee.** Between
+        this answer and the write there is a window in which another process
+        can insert the same name. Phase 4 closes it with a unique index; this
+        exists so the caller gets a domain error explaining the refusal rather
+        than a driver's integrity error.
+        """
+        ...
+
 
 class EventPublisher(Protocol):
     """Where announcements go.

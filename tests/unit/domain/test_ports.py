@@ -68,6 +68,9 @@ class InMemoryCollectionRepository:
     def get(self, collection_id: CollectionId) -> Collection | None:
         return self.collections.get(collection_id)
 
+    def exists_with_name(self, name: str) -> bool:
+        return any(collection.name == name for collection in self.collections.values())
+
 
 class FixedClock:
     """The whole point of the port: a test can name the instant it expects."""

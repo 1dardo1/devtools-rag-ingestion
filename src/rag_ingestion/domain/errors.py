@@ -94,6 +94,19 @@ class CollectionFullError(DomainError):
         )
 
 
+class DuplicateCollectionNameError(DomainError):
+    """Raised when a collection already exists under the name requested.
+
+    The name is the only part of a collection a person reads, so two
+    collections called the same thing make "which one holds my document?"
+    unanswerable. `CollectionId` still provides identity; this protects
+    legibility, which is a different thing.
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"A collection named {name!r} already exists")
+
+
 class CollectionNotFoundError(DomainError):
     """Raised when a document is submitted to a collection that does not exist.
 
