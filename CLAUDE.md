@@ -84,12 +84,14 @@ Return here afterwards for Phase 4.
 Two decisions are due before Phase 4 starts, both recorded as `[+]` items in
 `docs/BUILD-PLAN.md` and both cheap now:
 
-- **A migration tool**, before 4.1. Note that it depends on a prior choice
-  nobody has made: **whether the PostgreSQL adapter uses an ORM or raw SQL.**
-  Nothing in the documentation decides this — the domain is forbidden from
-  importing SQLAlchemy, but that is a rule about a layer, not a choice of
-  technology for the adapters. Alembic is the natural answer with SQLAlchemy
-  and the wrong one without it, so settle the adapter first.
+- **A migration tool**, before 4.1. It is informed by a prior choice nobody has
+  made — **whether the PostgreSQL adapter uses an ORM, SQLAlchemy Core, or raw
+  SQL** — though less tightly than it first appears. Alembic runs hand-written
+  `op.execute("CREATE TABLE …")` migrations with no SQLAlchemy models declared
+  at all; verified, not assumed. What the adapter choice actually decides is
+  whether `alembic autogenerate` is available, since that diffs declared
+  metadata against the database. Settle the adapter first anyway: it is the
+  larger decision and it sets what the migrations are written against.
 - **Logging and error reporting**, before 4.5. The relay in 4.3 runs
   unattended, where silence and success look identical.
 
