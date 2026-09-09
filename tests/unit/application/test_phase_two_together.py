@@ -60,6 +60,7 @@ class InMemoryDocumentRepository:
         return any(
             document.collection_id == collection_id
             and document.content_hash == content_hash
+            and document.status is not DocumentStatus.FAILED
             for document in self.documents.values()
         )
 
@@ -214,3 +215,47 @@ def test_nothing_in_the_three_use_cases_touches_infrastructure() -> None:
     assert len(service.documents.documents) == 1
     assert len(service.documents.content) == 1
     assert len(service.events.published) == 1
+
+
+def test_a_document_that_failed_can_be_submitted_again() -> None:
+    """`Document.mark_failed` says recovery is resubmission. This is that.
+
+    Before the deduplication question learned to ignore failures, the failed
+    attempt counted as a duplicate of itself and the content could never be
+    ingested into that collection again without deleting a row by hand.
+    """
+    service = Service()
+    collection_id = service.create_collection.execute(
+        CreateCollectionCommand(name="redis docs")
+    )
+    first = service.ingest.execute(a_command(collection_id, CONTENT))
+    stored = service.documents.get(first)
+    assert stored is not None
+    stored.start_processing()
+    stored.mark_failed()
+
+    second = service.ingest.execute(a_command(collection_id, CONTENT))
+
+    assert second != first
+    status = service.status.execute(second)
+    assert status is not None
+    assert status.status is DocumentStatus.PENDING
+
+
+def test_the_failed_attempt_is_still_there_to_be_asked_about() -> None:
+    """Resubmission does not erase the evidence that the first try failed."""
+    service = Service()
+    collection_id = service.create_collection.execute(
+        CreateCollectionCommand(name="redis docs")
+    )
+    first = service.ingest.execute(a_command(collection_id, CONTENT))
+    stored = service.documents.get(first)
+    assert stored is not None
+    stored.start_processing()
+    stored.mark_failed()
+
+    service.ingest.execute(a_command(collection_id, CONTENT))
+
+    failed_status = service.status.execute(first)
+    assert failed_status is not None
+    assert failed_status.status is DocumentStatus.FAILED

@@ -20,6 +20,7 @@ from rag_ingestion.domain.content_hash import ContentHash
 from rag_ingestion.domain.doc_type import DocType
 from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
+from rag_ingestion.domain.document_status import DocumentStatus
 from rag_ingestion.domain.events import DocumentIngested
 from rag_ingestion.domain.metadata import Metadata
 from rag_ingestion.domain.ports import (
@@ -48,6 +49,7 @@ class InMemoryDocumentRepository:
         return any(
             document.collection_id == collection_id
             and document.content_hash == content_hash
+            and document.status is not DocumentStatus.FAILED
             for document in self.documents.values()
         )
 
@@ -163,3 +165,28 @@ def a_document(
         metadata=Metadata(source_library="pytest", doc_type=DocType.HOW_TO),
         ingested_at=datetime(2026, 8, 30, 9, 15, tzinfo=UTC),
     )
+
+
+def test_content_whose_only_copy_failed_is_not_present() -> None:
+    """`Document.mark_failed` promises a resubmission; this is what allows it."""
+    repository = InMemoryDocumentRepository()
+    collection_id = CollectionId.generate()
+    content = ContentHash.of(b"a page that failed to index")
+    failed = a_document(collection_id=collection_id, content=content)
+    failed.start_processing()
+    failed.mark_failed()
+    repository.add(failed, b"a page that failed to index")
+
+    assert not repository.exists_with_content_hash(collection_id, content)
+
+
+def test_content_still_being_processed_is_present() -> None:
+    """Only failure is forgiven; a document on its way in still counts."""
+    repository = InMemoryDocumentRepository()
+    collection_id = CollectionId.generate()
+    content = ContentHash.of(b"a page mid-flight")
+    in_flight = a_document(collection_id=collection_id, content=content)
+    in_flight.start_processing()
+    repository.add(in_flight, b"a page mid-flight")
+
+    assert repository.exists_with_content_hash(collection_id, content)
