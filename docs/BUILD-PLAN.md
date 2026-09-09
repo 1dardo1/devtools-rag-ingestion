@@ -230,7 +230,7 @@ Two items the roadmap did not name. Neither is large; both are cheap now and awk
 
 | Item | Why it is missing-work rather than scope creep | When it is needed |
 |---|---|---|
-| **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. | Before 4.1 |
+| **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. **It is informed by a prior choice nobody has made:** whether the PostgreSQL adapter uses an ORM, SQLAlchemy Core, or raw SQL. The domain is forbidden from importing SQLAlchemy, but that is a rule about a layer, not a technology choice for the adapters, and nothing else in the documentation settles it. The coupling is weaker than it looks: Alembic runs hand-written SQL migrations with no models declared, so what the adapter choice really decides is whether `autogenerate` is available. Settle the adapter first regardless — it is the larger decision. | Before 4.1 |
 | **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. | Before 4.5 |
 
 ### A dependency this plan had backwards
