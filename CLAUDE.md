@@ -81,19 +81,15 @@ Done so far:
 turns the `DocumentIngested` shape agreed in 1.4 into the published schema.
 Return here afterwards for Phase 4.
 
-Two decisions are due before Phase 4 starts, both recorded as `[+]` items in
-`docs/BUILD-PLAN.md` and both cheap now:
+**How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
+migrated by Alembic running `op.execute` with no declared models. ADR 0010
+records it, including why the SQLAlchemy ORM was rejected on evidence — it
+cannot map these entities, because `slots=True` breaks the identity map's weak
+references at runtime rather than at declaration.
 
-- **A migration tool**, before 4.1. It is informed by a prior choice nobody has
-  made — **whether the PostgreSQL adapter uses an ORM, SQLAlchemy Core, or raw
-  SQL** — though less tightly than it first appears. Alembic runs hand-written
-  `op.execute("CREATE TABLE …")` migrations with no SQLAlchemy models declared
-  at all; verified, not assumed. What the adapter choice actually decides is
-  whether `alembic autogenerate` is available, since that diffs declared
-  metadata against the database. Settle the adapter first anyway: it is the
-  larger decision and it sets what the migrations are written against.
-- **Logging and error reporting**, before 4.5. The relay in 4.3 runs
-  unattended, where silence and success look identical.
+**One decision is still due before Phase 4 finishes: logging and error
+reporting**, before 4.5, recorded as a `[+]` item in `docs/BUILD-PLAN.md`. The
+relay in 4.3 runs unattended, where silence and success look identical.
 
 **Keep this section current.** It is the first thing a new session reads, and a
 stale one sends the work in the wrong direction.
