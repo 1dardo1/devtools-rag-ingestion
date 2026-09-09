@@ -78,21 +78,34 @@ Done so far:
   `GetIngestionStatus` — running end to end against in-memory fakes with no
   infrastructure present. `tests/unit/application/test_phase_two_together.py`
   composes all three and is the phase's completion criterion in one file.
-- Nine ADRs, in `docs/adr/`. 179 tests.
+- **The schema.** Alembic scaffolding in `src/rag_ingestion/migrations`, and
+  revision `0001` creating `collections`, `documents` and `outbox`. Recorded in
+  ADR 0012. The first integration tests live alongside it and run against a
+  real container.
+- Twelve ADRs, in `docs/adr/`. 196 tests — 183 unit, 13 integration.
 
 **Next: Phase 3, and it happens in `devtools-rag-contracts`, not here.** It
 turns the `DocumentIngested` shape agreed in 1.4 into the published schema.
-Return here afterwards for Phase 4.
+Return here afterwards for the 4.1 adapter.
 
 **How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
 migrated by Alembic running `op.execute` with no declared models. ADR 0010
 records it, including why the SQLAlchemy ORM was rejected on evidence — it
 cannot map these entities, because `slots=True` breaks the identity map's weak
-references at runtime rather than at declaration.
+references at runtime rather than at declaration. **The schema those migrations
+create is ADR 0012**, which is the document to read before writing a line of the
+adapter: it says what every constraint restates and, more usefully, what the
+schema deliberately does not enforce.
 
 **One decision is still due before Phase 4 finishes: logging and error
 reporting**, before 4.5, recorded as a `[+]` item in `docs/BUILD-PLAN.md`. The
 relay in 4.3 runs unattended, where silence and success look identical.
+
+**Migrations are run, not written from memory.** `alembic revision
+--autogenerate` does not work here and never will — ADR 0010 declined declared
+models, so there is no metadata to diff. Write the SQL by hand, then prove it:
+upgrade, probe each constraint with a row that violates it, downgrade, upgrade
+again.
 
 **Keep this section current.** It is the first thing a new session reads, and a
 stale one sends the work in the wrong direction.
