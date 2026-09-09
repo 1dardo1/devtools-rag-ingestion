@@ -5,7 +5,17 @@ description = "Document intake service for a RAG system, with a transactional ou
 readme = "README.md"
 requires-python = ">=3.14"
 license = { file = "LICENSE" }
-dependencies = []
+# ADR 0010: psycopg 3 with hand-written SQL; Alembic for migrations.
+# Both are runtime rather than dev dependencies: the Phase 5 image has to be
+# able to run `alembic upgrade head` against the deployed database, and it
+# runs from this same distribution.
+# `alembic` pulls SQLAlchemy in transitively. ADR 0010 says why a project that
+# declined SQLAlchemy nevertheless installs it, and that nothing here imports
+# it.
+dependencies = [
+    "alembic>=1.19.2",
+    "psycopg[binary]>=3.3.5",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -15,10 +25,15 @@ build-backend = "hatchling.build"
 packages = ["src/rag_ingestion"]
 
 [dependency-groups]
+# ADR 0011: integration tests start their own containers.
+# Only the `postgres` extra for now. The `redis` one arrives with 4.3, which
+# is blocked on Phase 3 anyway; installing it early would be a dependency
+# nothing uses.
 dev = [
     "mypy>=2.3.1",
     "pytest>=8.4.2",
     "ruff>=0.16.5",
+    "testcontainers[postgres]>=4.15.0",
 ]
 
 # ADR 0002: Python 3.14.
@@ -92,3 +107,11 @@ enable_error_code = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# ADR 0011. The unit suite must stay runnable on a machine with no Docker, so
+# anything that starts a container is marked and can be excluded with
+# `-m "not integration"`. `--strict-markers` turns a typo in a marker name into
+# an error rather than a silently unfiltered test.
+addopts = "--strict-markers"
+markers = [
+    "integration: starts a real container; needs a Docker daemon",
+]
