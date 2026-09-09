@@ -55,7 +55,10 @@ adapters, with the dependency arrow pointing inward.
 - The relay process is separate from the API process. They do not share a
   lifecycle.
 - Domain and use-case tests use in-memory fakes. Integration tests use real
-  containers. Do not mock the PostgreSQL driver.
+  containers. Do not mock the PostgreSQL driver. The containers are started by
+  the tests themselves via `testcontainers`, and any test that starts one is
+  marked `@pytest.mark.integration` so the unit suite still runs without a
+  Docker daemon. ADR 0011.
 
 ## Current phase
 
