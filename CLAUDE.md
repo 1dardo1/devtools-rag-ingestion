@@ -92,17 +92,31 @@ Done so far:
   transaction. **The invariant is proved through the real `IngestDocument`**, not
   through the adapters in isolation: `TestTheDocumentAndItsOutboxRowAreAtomic`.
   ADR 0014 records the payload shape and why Phase 3 still owns the contract.
-- Fourteen ADRs, in `docs/adr/`. 220 tests — 183 unit, 37 integration.
+- **4.4, the HTTP layer.** `api/` with five modules: Pydantic schemas, providers
+  that raise, the refusal table, three endpoints and `create_app()`. Content
+  arrives base64 in JSON; `202` for an accepted document, never `201`. ADR 0015.
+  **It ships wired to nothing on purpose** — the web layer and the storage chain
+  meet for the first time at 4.5.
+- Fifteen ADRs, in `docs/adr/`. 240 tests — 203 unit, 37 integration.
 
-**Next: 4.4, the HTTP layer**, which `docs/BUILD-PLAN.md` shows is not blocked by
-anything outstanding. **4.3, the relay, is blocked** — the graph reads
-`EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`. 4.5, the
-composition root, waits on 4.4.
+**Next: 4.5, the composition root.** **4.3, the relay, is blocked** — the graph
+reads `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`.
 
-**Read ADR 0014 before building 4.5.** The atomicity 4.2 proves is only as strong
-as the wiring: a publisher and a repository on two *different* connections
-typecheck perfectly and are not atomic. Build all three adapters from one
-connection and commit once.
+**Two guards now hold rules that used to rely on review**, both in
+`tests/unit/api/test_routes.py`: `test_every_endpoint_is_synchronous` fails if
+any endpoint is declared `async def` (ADR 0007), and
+`test_the_application_ships_unwired` fails if 4.4 starts satisfying its own
+dependencies.
+
+**Read ADR 0014 and ADR 0015 before building 4.5.** Three things it must get
+right, none of which the type checker can check:
+
+1. The atomicity 4.2 proves is only as strong as the wiring — a publisher and a
+   repository on two *different* connections typecheck perfectly and are not
+   atomic. Build all three adapters from **one** connection and commit once.
+2. The connection and the commit must be **per request**, which is why the
+   endpoints take their use cases through `Depends` rather than holding them.
+3. A dependency override it forgets is a runtime `500`, not a compile error.
 
 **How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
 migrated by Alembic running `op.execute` with no declared models. ADR 0010
