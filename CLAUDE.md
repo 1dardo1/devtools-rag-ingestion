@@ -87,12 +87,22 @@ Done so far:
   with hand-written SQL. **They take a connection and never commit** — ADR 0013
   says why, and that choice is what leaves 4.2 room to put the outbox row in the
   document's transaction without rewriting anything here.
-- Thirteen ADRs, in `docs/adr/`. 213 tests — 183 unit, 30 integration.
+- **4.2, the outbox.** `PostgresOutboxEventPublisher` writes one row per event
+  on the connection it is given — the document's connection — so the two are one
+  transaction. **The invariant is proved through the real `IngestDocument`**, not
+  through the adapters in isolation: `TestTheDocumentAndItsOutboxRowAreAtomic`.
+  ADR 0014 records the payload shape and why Phase 3 still owns the contract.
+- Fourteen ADRs, in `docs/adr/`. 220 tests — 183 unit, 37 integration.
 
-**Next: Phase 3, and it happens in `devtools-rag-contracts`, not here.** It
-turns the `DocumentIngested` shape agreed in 1.4 into the published schema.
-Return here afterwards for 4.2, the outbox — the centrepiece, and the unit
-`ROADMAP.md` calls the deliverable rather than the plumbing.
+**Next: 4.4, the HTTP layer**, which `docs/BUILD-PLAN.md` shows is not blocked by
+anything outstanding. **4.3, the relay, is blocked** — the graph reads
+`EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`. 4.5, the
+composition root, waits on 4.4.
+
+**Read ADR 0014 before building 4.5.** The atomicity 4.2 proves is only as strong
+as the wiring: a publisher and a repository on two *different* connections
+typecheck perfectly and are not atomic. Build all three adapters from one
+connection and commit once.
 
 **How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
 migrated by Alembic running `op.execute` with no declared models. ADR 0010
