@@ -212,6 +212,8 @@ Phase 3".
 
 **4.5 — Composition root.** One single place where all the real pieces are plugged into all the sockets. Having exactly one such place is what makes it possible to swap any piece — a different database, a different message channel — by editing one file instead of hunting through the whole codebase.
 
+> **Done.** `main.py`, recorded in ADR 0017. Posting a document over HTTP now produces a row in `documents` and its row in `outbox`, in one transaction, proved by an integration test rather than by hand — which is half of the phase's completion criterion. The other half is the Redis message, and that is 4.3.
+
 **5.1 — Dockerfile.** Package the service so it runs identically on any machine, regardless of what is installed there.
 
 **5.2 — docker compose.** One command that starts everything a developer needs — the service, the relay, the database, the message channel — on a computer that has none of them.
