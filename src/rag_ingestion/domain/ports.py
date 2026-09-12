@@ -80,7 +80,21 @@ class DocumentRepository(Protocol):
     def exists_with_content_hash(
         self, collection_id: CollectionId, content_hash: ContentHash
     ) -> bool:
-        """Answer whether this collection already holds this exact content."""
+        """Answer whether this collection holds this content in a live state.
+
+        **Documents in `FAILED` do not count.** `Document.mark_failed` says a
+        failed document is recovered by submitting it again, and counting one
+        here would make that impossible: the resubmission would be refused as a
+        duplicate of the very attempt that failed, and the only way out would
+        be deleting a row by hand.
+
+        Every other status counts. A document still `PENDING` or `PROCESSING`
+        is on its way in, and `INDEXED` is the case deduplication exists for.
+
+        The Phase 4 adapter enforces the same condition twice: this query, and
+        a partial unique index on `(collection_id, content_hash)` restricted to
+        rows that are not failed. See ADR 0012.
+        """
         ...
 
     def count_in_collection(self, collection_id: CollectionId) -> int:

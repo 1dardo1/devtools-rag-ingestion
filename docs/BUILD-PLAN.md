@@ -192,6 +192,14 @@ Phase 3".
 
 **4.1 — PostgreSQL adapter.** Build the piece that actually writes documents into a real database and reads them back. It plugs into the socket defined in 1.5, so the recipes from Phase 2 do not change at all — they simply stop talking to pretend storage and start talking to the real thing.
 
+> **The tables it writes into already exist.** Once the migration tool was
+> settled, the schema stopped being blocked on anything and was built ahead of
+> the adapter: revision `0001` creates `collections`, `documents` and `outbox`,
+> and ADR 0012 records every constraint and what was rejected. The order is
+> deliberate — an adapter written before the schema it targets is written
+> against a guess, and the schema is also where the deduplication rule stops
+> being merely a query and becomes true under concurrency.
+
 **4.2 — Outbox in one transaction.** The centrepiece. When a document arrives, two things must be recorded: the document itself, and a note saying "tell the rest of the system about this". Both are written in a single all-or-nothing step, so it is impossible to end up having stored a document nobody was ever told about — even if the machine loses power in between.
 
 **4.3 — Relay to Redis.** A separate, independently running program whose only job is to read those notes, announce them, and mark them as sent. Because it is separate, the part that accepts documents keeps working even when the announcement channel is down; the notes simply pile up and go out later.
@@ -230,7 +238,7 @@ Two items the roadmap did not name. Neither is large; both are cheap now and awk
 
 | Item | Why it is missing-work rather than scope creep | When it is needed |
 |---|---|---|
-| **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. It turned out to sit behind a larger unmade choice — what the adapter talks to PostgreSQL *with* — so both were taken together. **Settled: psycopg 3 with hand-written SQL, migrated by Alembic running `op.execute` and no declared models. See ADR 0010.** | ~~Before 4.1~~ done |
+| **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. It turned out to sit behind a larger unmade choice — what the adapter talks to PostgreSQL *with* — so both were taken together. **Settled: psycopg 3 with hand-written SQL, migrated by Alembic running `op.execute` and no declared models. See ADR 0010.** Applied: revision `0001` creates the schema, recorded in **ADR 0012**. | ~~Before 4.1~~ done |
 | **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. | Before 4.5 |
 
 ### A dependency this plan had backwards

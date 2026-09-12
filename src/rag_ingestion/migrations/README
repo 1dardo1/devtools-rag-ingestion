@@ -1,0 +1,15 @@
+Alembic migrations for the ingestion service's PostgreSQL schema.
+
+ADR 0010 chose Alembic running hand-written SQL and no declared models, so
+`alembic revision --autogenerate` does not work here and never will: it needs
+model metadata to diff against. Write `op.execute("...")` by hand.
+
+    alembic revision -m "What it does" --rev-id 0002
+    alembic upgrade head
+    alembic downgrade -1
+
+The database is named by DATABASE_URL, or by `sqlalchemy.url` set on the config
+object by a caller that already knows it. `alembic.ini` deliberately leaves it
+empty. See `env.py`.
+
+ADR 0012 records the schema and why each table looks the way it does.

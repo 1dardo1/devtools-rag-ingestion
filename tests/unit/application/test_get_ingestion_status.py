@@ -38,6 +38,7 @@ class InMemoryDocumentRepository:
         return any(
             document.collection_id == collection_id
             and document.content_hash == content_hash
+            and document.status is not DocumentStatus.FAILED
             for document in self.documents.values()
         )
 
