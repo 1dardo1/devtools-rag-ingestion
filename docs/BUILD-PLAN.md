@@ -208,6 +208,8 @@ Phase 3".
 
 **[+] Logging and error reporting.** Decide how the service says what it is doing and shouts when something breaks. This matters most for the relay, which runs unattended: without it, a relay that has quietly stopped announcing anything looks exactly like a relay with nothing to announce.
 
+> **Half done, and the other half is now its own item.** ADR 0016 settles the mechanism — the standard library's `logging`, one JSON object per line on stdout, chosen partly because `ruff`'s `G` and `LOG` families have been enabled since ADR 0006 and lint nothing else. Writing it exposed that the sentence above describes a problem logging does not solve: a relay that crashed and a relay with an empty outbox both write nothing. Making that silence legible is listed separately, due before 4.3.
+
 **4.5 — Composition root.** One single place where all the real pieces are plugged into all the sockets. Having exactly one such place is what makes it possible to swap any piece — a different database, a different message channel — by editing one file instead of hunting through the whole codebase.
 
 **5.1 — Dockerfile.** Package the service so it runs identically on any machine, regardless of what is installed there.
@@ -239,7 +241,8 @@ Two items the roadmap did not name. Neither is large; both are cheap now and awk
 | Item | Why it is missing-work rather than scope creep | When it is needed |
 |---|---|---|
 | **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. It turned out to sit behind a larger unmade choice — what the adapter talks to PostgreSQL *with* — so both were taken together. **Settled: psycopg 3 with hand-written SQL, migrated by Alembic running `op.execute` and no declared models. See ADR 0010.** Applied: revision `0001` creates the schema, recorded in **ADR 0012**. | ~~Before 4.1~~ done |
-| **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. | Before 4.5 |
+| **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. **The mechanism is settled: the standard library's `logging`, one JSON object per line on stdout. See ADR 0016.** But writing that ADR showed the stated problem is *not* solved by it — a crashed relay and an idle relay both write nothing — so the half that makes silence legible is split out below. | ~~Before 4.5~~ mechanism done |
+| **Making the relay's silence legible** | Split out of the item above once it became clear that error reporting cannot distinguish a relay that stopped from a relay with nothing to do. Needs something that speaks when there is nothing to say. ADR 0016 proposes the API reporting the age of the oldest unpublished outbox row — the relay's liveness read through the database both processes already share, rather than a new channel between them. | Before 4.3 |
 
 ### A dependency this plan had backwards
 
