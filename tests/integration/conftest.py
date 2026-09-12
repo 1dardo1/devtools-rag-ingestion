@@ -1,8 +1,11 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+import psycopg
 import pytest
+from alembic import command
 from alembic.config import Config
+from psycopg.rows import TupleRow
 from testcontainers.community.postgres import PostgresContainer
 
 # `postgres:16` rather than `postgres:latest`. A test suite whose result
@@ -39,3 +42,23 @@ def alembic_config(postgres_url: str) -> Config:
 
 def _as_sqlalchemy_url(url: str) -> str:
     return url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+
+@pytest.fixture
+def migrated(
+    alembic_config: Config, postgres_url: str
+) -> Iterator[psycopg.Connection[TupleRow]]:
+    """A database at `head` with an open connection, torn back down afterwards.
+
+    Downgrading rather than dropping the database is what keeps each test
+    independent *and* exercises `downgrade` on every run. A downgrade nobody
+    runs is a downgrade that does not work.
+
+    `autocommit=True`, so a test that says nothing about transactions does not
+    leave one open — a held transaction would block the teardown's `DROP TABLE`.
+    A test that is *about* transactions opens its own connection instead.
+    """
+    command.upgrade(alembic_config, "head")
+    with psycopg.connect(postgres_url, autocommit=True) as connection:
+        yield connection
+    command.downgrade(alembic_config, "base")

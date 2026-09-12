@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from uuid import UUID, uuid4
 
 import psycopg
@@ -25,20 +24,6 @@ INSERT INTO documents (
 
 _CONTENT = b"the same bytes every time"
 _HASH = "d0f8ee0e5cf3f0f1e17a7f5b0d1a9e0e0f2f4c1a3b5d7e9f0a1b2c3d4e5f6a7b"
-
-
-@pytest.fixture
-def migrated(alembic_config: Config, postgres_url: str) -> Iterator[Connection]:
-    """A database at `head`, torn back down to `base` afterwards.
-
-    Downgrading rather than dropping the database is what keeps each test
-    independent *and* exercises `downgrade` on every run. A downgrade nobody
-    runs is a downgrade that does not work.
-    """
-    command.upgrade(alembic_config, "head")
-    with psycopg.connect(postgres_url, autocommit=True) as connection:
-        yield connection
-    command.downgrade(alembic_config, "base")
 
 
 def _table_names(connection: Connection) -> set[str]:

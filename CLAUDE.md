@@ -82,11 +82,17 @@ Done so far:
   revision `0001` creating `collections`, `documents` and `outbox`. Recorded in
   ADR 0012. The first integration tests live alongside it and run against a
   real container.
-- Twelve ADRs, in `docs/adr/`. 196 tests — 183 unit, 13 integration.
+- **4.1, the PostgreSQL adapter.** `PostgresDocumentRepository` and
+  `PostgresCollectionRepository` in `infrastructure/postgres/`, over psycopg 3
+  with hand-written SQL. **They take a connection and never commit** — ADR 0013
+  says why, and that choice is what leaves 4.2 room to put the outbox row in the
+  document's transaction without rewriting anything here.
+- Thirteen ADRs, in `docs/adr/`. 213 tests — 183 unit, 30 integration.
 
 **Next: Phase 3, and it happens in `devtools-rag-contracts`, not here.** It
 turns the `DocumentIngested` shape agreed in 1.4 into the published schema.
-Return here afterwards for the 4.1 adapter.
+Return here afterwards for 4.2, the outbox — the centrepiece, and the unit
+`ROADMAP.md` calls the deliverable rather than the plumbing.
 
 **How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
 migrated by Alembic running `op.execute` with no declared models. ADR 0010
@@ -100,6 +106,10 @@ schema deliberately does not enforce.
 **One decision is still due before Phase 4 finishes: logging and error
 reporting**, before 4.5, recorded as a `[+]` item in `docs/BUILD-PLAN.md`. The
 relay in 4.3 runs unattended, where silence and success look identical.
+
+**The transaction boundary is the caller's, everywhere.** No adapter commits.
+If a repository or publisher calls `commit()`, the invariant above is gone and
+the test that proves it is `TestTheTransactionBelongsToTheCaller`. ADR 0013.
 
 **Migrations are run, not written from memory.** `alembic revision
 --autogenerate` does not work here and never will — ADR 0010 declined declared
