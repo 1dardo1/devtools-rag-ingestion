@@ -12,17 +12,40 @@ import pytest
 from rag_ingestion.observability import configure
 
 
-@pytest.fixture
-def stream() -> Iterator[io.StringIO]:
-    """A configured logger writing somewhere a test can read.
+@pytest.fixture(autouse=True)
+def _leave_the_root_logger_as_it_was() -> Iterator[None]:
+    """Put the root logger back exactly as it was found, handlers and level.
 
-    The root logger is global, so it is put back afterwards — a test that left
-    it configured would change how every later test behaves.
+    `logging.basicConfig(force=True)` looks like the obvious reset and is not
+    good enough. It *installs a new handler* bound to whatever `sys.stderr` is
+    at that moment, which under `pytest` is a capture buffer the session closes
+    when it ends. Anything logged after that — `testcontainers` reaping a
+    container at interpreter exit — then dies with "I/O operation on closed
+    file", printed after a green run.
+
+    It was also leaving the root level at whatever the last test set, which is
+    what let third-party `DEBUG` records through in the first place.
+
+    Restoring the snapshot adds no handler of its own, so nothing ends up bound
+    to a stream that is about to be closed.
     """
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    level = root.level
+    yield
+    for handler in root.handlers[:]:
+        root.removeHandler(handler)
+    for handler in handlers:
+        root.addHandler(handler)
+    root.setLevel(level)
+
+
+@pytest.fixture
+def stream() -> io.StringIO:
+    """A configured logger writing somewhere a test can read."""
     captured = io.StringIO()
     configure(stream=captured)
-    yield captured
-    logging.basicConfig(force=True)
+    return captured
 
 
 def _lines(stream: io.StringIO) -> list[dict[str, Any]]:
@@ -131,10 +154,10 @@ def test_configuring_twice_does_not_log_twice() -> None:
     configure(stream=captured)
 
     logging.getLogger("rag_ingestion.test").info("once")
-    logging.basicConfig(force=True)
 
     # Alembic's env.py also configures logging when migrations run in-process,
-    # so this is not a hypothetical.
+    # so this is not a hypothetical. The autouse fixture restores the root
+    # logger afterwards; this test must not reset it by hand.
     assert len(_lines(captured)) == 1
 
 
