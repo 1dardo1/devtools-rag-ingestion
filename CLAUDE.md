@@ -102,10 +102,19 @@ Done so far:
   the envelope. ADR 0016 — which also records that this settles the *mechanism*
   only, and that making the relay's silence legible is a separate decision due
   before 4.3.
-- Sixteen ADRs, in `docs/adr/`. 251 tests — 214 unit, 37 integration.
+- **4.5, the composition root.** `config.py` (Pydantic Settings) and `main.py`:
+  `transaction_per_request` is the service's entire transaction boundary, and
+  `build()` wires all three adapters onto one per-request connection, configures
+  logging and adds the request-id middleware. ADR 0017. **Phase 4's completion
+  criterion is half met and machine-verified** — posting a document over HTTP
+  produces the row *and* its outbox row; the Redis half is 4.3.
+- Seventeen ADRs, in `docs/adr/`. 263 tests — 214 unit, 49 integration.
 
-**Next: 4.5, the composition root.** **4.3, the relay, is blocked** — the graph
-reads `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`.
+**Next: 4.3, the relay — and it is blocked twice over.** The graph reads
+`EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
+split out "making the relay's silence legible" as a decision also due before it.
+**Phase 5 (containers) is not blocked** and is the nearer half of the gate: the
+public URL is the only part still open.
 
 **Two guards now hold rules that used to rely on review**, both in
 `tests/unit/api/test_routes.py`: `test_every_endpoint_is_synchronous` fails if
@@ -113,15 +122,17 @@ any endpoint is declared `async def` (ADR 0007), and
 `test_the_application_ships_unwired` fails if 4.4 starts satisfying its own
 dependencies.
 
-**Read ADR 0014 and ADR 0015 before building 4.5.** Three things it must get
-right, none of which the type checker can check:
+**The composition root is `main.py`, and ADR 0017 records what it had to get
+right.** Two traps worth carrying forward:
 
-1. The atomicity 4.2 proves is only as strong as the wiring — a publisher and a
-   repository on two *different* connections typecheck perfectly and are not
-   atomic. Build all three adapters from **one** connection and commit once.
-2. The connection and the commit must be **per request**, which is why the
-   endpoints take their use cases through `Depends` rather than holding them.
-3. A dependency override it forgets is a runtime `500`, not a compile error.
+1. **Every domain refusal is raised before the first write.** So a test that
+   posts a duplicate and checks nothing was stored does **not** exercise the
+   rollback — an earlier version of 4.5's tests claimed it did and was wrong.
+   Reaching the rollback means driving the generator
+   `transaction_per_request` returns, which is why it is module-level.
+2. **`DATABASE_URL` holds a plain libpq URL.** `psycopg.connect` rejects
+   SQLAlchemy's `postgresql+psycopg://` form outright, so `env.py` adds that
+   prefix itself. One variable, one canonical shape.
 
 **How Phase 4 reaches PostgreSQL is settled:** psycopg 3 with hand-written SQL,
 migrated by Alembic running `op.execute` with no declared models. ADR 0010
