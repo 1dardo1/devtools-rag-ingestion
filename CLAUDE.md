@@ -97,7 +97,12 @@ Done so far:
   arrives base64 in JSON; `202` for an accepted document, never `201`. ADR 0015.
   **It ships wired to nothing on purpose** — the web layer and the storage chain
   meet for the first time at 4.5.
-- Fifteen ADRs, in `docs/adr/`. 240 tests — 203 unit, 37 integration.
+- **Logging.** `observability.py`: the standard library's `logging`, one JSON
+  object per line on stdout, `extra` nested under `context` so it cannot corrupt
+  the envelope. ADR 0016 — which also records that this settles the *mechanism*
+  only, and that making the relay's silence legible is a separate decision due
+  before 4.3.
+- Sixteen ADRs, in `docs/adr/`. 251 tests — 214 unit, 37 integration.
 
 **Next: 4.5, the composition root.** **4.3, the relay, is blocked** — the graph
 reads `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`.
@@ -127,9 +132,14 @@ create is ADR 0012**, which is the document to read before writing a line of the
 adapter: it says what every constraint restates and, more usefully, what the
 schema deliberately does not enforce.
 
-**One decision is still due before Phase 4 finishes: logging and error
-reporting**, before 4.5, recorded as a `[+]` item in `docs/BUILD-PLAN.md`. The
-relay in 4.3 runs unattended, where silence and success look identical.
+**Logging is settled — the mechanism, at least.** The standard library's
+`logging`, JSON on stdout, ADR 0016. Never an f-string in a logging call:
+`ruff`'s G004 forbids it so that formatting is deferred to the formatter, and
+structured fields go in `extra`, where they land under `context`.
+
+**What is still open is the half ADR 0016 split out:** a crashed relay and an
+idle relay both write nothing, so silence is still ambiguous. Due before 4.3,
+tracked in `docs/BUILD-PLAN.md`.
 
 **The transaction boundary is the caller's, everywhere.** No adapter commits.
 If a repository or publisher calls `commit()`, the invariant above is gone and
