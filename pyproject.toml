@@ -12,9 +12,15 @@ license = { file = "LICENSE" }
 # `alembic` pulls SQLAlchemy in transitively. ADR 0010 says why a project that
 # declined SQLAlchemy nevertheless installs it, and that nothing here imports
 # it.
+# ADR 0015: FastAPI for the HTTP layer, which `ROADMAP.md` 4.4 names. Pydantic
+# is declared explicitly although `fastapi` already pulls it in, because `api/`
+# imports it directly — unlike SQLAlchemy, which ADR 0010 leaves transitive
+# precisely because nothing here imports it. Declare what you import.
 dependencies = [
     "alembic>=1.19.2",
+    "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.5",
+    "pydantic>=2.13.5",
 ]
 
 [build-system]
@@ -29,7 +35,11 @@ packages = ["src/rag_ingestion"]
 # Only the `postgres` extra for now. The `redis` one arrives with 4.3, which
 # is blocked on Phase 3 anyway; installing it early would be a dependency
 # nothing uses.
+# `httpx2`, not `httpx`. Starlette 1.6 deprecated `httpx` for its `TestClient`
+# and asks for `httpx2` by name; the warning was reproduced before choosing.
+# See ADR 0015.
 dev = [
+    "httpx2>=2.12.0",
     "mypy>=2.3.1",
     "pytest>=8.4.2",
     "ruff>=0.16.5",
