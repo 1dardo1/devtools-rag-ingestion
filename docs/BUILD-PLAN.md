@@ -229,7 +229,7 @@ Phase 3".
 
 **7.2 — Public deployment.** Put the service on the internet at an address anyone can send a document to.
 
-**7.3 — README.** Write the explanation someone reads cold, having never seen the repository, and comes away understanding what it does and why it is built this way.
+**7.3 — README.** Write the explanation someone reads cold, having never seen the repository, and comes away understanding what it does and why it is built this way. **Done.** It now answers the first question a reader has — what the service accepts — with three commands that were executed against a running instance, and a guard holds the routes, fields and refusal codes against the generated OpenAPI in both directions. Writing it found three claims that had quietly stopped being true. See ADR 0023.
 
 **7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — eight are written.
 
