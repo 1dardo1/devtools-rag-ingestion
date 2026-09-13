@@ -86,11 +86,20 @@ _FORBIDDEN: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 
 def _tracked_text_files() -> list[Path]:
-    """Every file git tracks, which is exactly the set that could leak one.
+    """Every file that is in the repository or about to be.
 
-    `git ls-files` rather than walking the tree: an untracked file is not in the
-    repository, and walking would scan `.venv` — half a gigabyte of other
-    people's code, with its own test fixtures full of example credentials.
+    `git ls-files` rather than walking the tree, because walking would scan
+    `.venv` — half a gigabyte of other people's code, with its own fixtures full
+    of example credentials.
+
+    **`--others --exclude-standard` as well as the tracked set, and that was not
+    the first version.** Tracked files alone meant a brand-new file was invisible
+    until `git add`, so running the suite before staging gave a *false pass* — which
+    is exactly what happened to ADR 0022 itself: green locally, then caught from CI
+    once the commit made it tracked. The set that matters is "what would be in the
+    repository if this were committed", and `--exclude-standard` is what keeps that
+    honest: a developer's real `.env` is gitignored, so it stays out, which was the
+    whole reason for not walking the tree in the first place.
     """
     # The absolute path, because `ruff`'s S607 objects to a partial one: a bare
     # `git` resolves through `PATH`, which a hostile environment controls.
@@ -103,7 +112,7 @@ def _tracked_text_files() -> list[Path]:
     # the repository. A guard that cries about those is a guard people learn to
     # ignore.
     listed = subprocess.run(  # noqa: S603 - a literal argv with a resolved path
-        [git, "ls-files", "-z"],
+        [git, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=_ROOT,
         capture_output=True,
         text=True,

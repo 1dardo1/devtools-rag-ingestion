@@ -65,10 +65,22 @@ Two exclusions, both recorded because each is a hole:
 
 ### `git ls-files` rather than walking the tree
 
-"In the repository" means tracked. Walking would flag an untracked `.env` on a
-developer's machine, which is not in the repository — and a guard that cries about
-those is a guard people learn to ignore. It costs a `subprocess` call and an
-S603/S607 silence, both documented at the call site.
+Walking would scan `.venv` — half a gigabyte of other people's code, with its own
+fixtures full of example credentials. It costs a `subprocess` call and an S603/S607
+silence, both documented at the call site.
+
+**The set scanned is `--cached --others --exclude-standard`, not the tracked set,
+and the first version got that wrong.** Tracked files alone meant a brand-new file
+was invisible until `git add`, so running the suite before staging gave a **false
+pass** — which is precisely what happened to this ADR: green locally, then caught
+from CI once the commit made it tracked.
+
+The right set is "what would be in the repository if this were committed", and
+`--exclude-standard` is what keeps that from becoming the noisy version: a
+developer's real `.env` is gitignored, so it stays out, which was the reason for
+not walking the tree to begin with. Both halves are asserted by mutation — an
+unstaged file carrying a password is caught, and a gitignored `.env` carrying the
+same password is not.
 
 ## Decision
 
@@ -107,11 +119,17 @@ in Phase 6 — coverage, further integration tests — is now optional polish ne
 a public URL, which `CLAUDE.md` ranks above it explicitly.
 
 **The guard found something on its first run, in a file that had been read several
-times.** `config.py`'s `database_url` description carried
-`postgresql://user:password@host:port/database` as an illustration — the exact
-shape of the one credential this service could leak. It was a placeholder and it
-was still removed, on the no-allowance rule above. That is the guard paying for
-itself before it was committed.
+times.** `config.py`'s `database_url` description illustrated the URL shape with a
+literal `user:password@` in it — the exact shape of the one credential this service
+could leak. It was a placeholder and it was still removed, on the no-allowance rule
+above. That is the guard paying for itself before it was committed.
+
+**Then it found the same mistake twice more, in the explanations of the first
+one.** The comment added to `config.py` quoted the string it had just removed, and
+so did this ADR's first draft — flagged from CI, at this very paragraph. Writing
+about a forbidden pattern by reproducing it is apparently the natural reflex, and
+the guard catches it every time, which is the argument for having one stated better
+than any of these sentences manage.
 
 **And `test_the_guard_can_actually_see_a_secret` justified itself immediately.**
 The assignment pattern began with `\b`, which **does not match inside
