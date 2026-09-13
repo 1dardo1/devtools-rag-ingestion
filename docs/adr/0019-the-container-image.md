@@ -1,7 +1,7 @@
 # 19. The container image
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-13
+- **Last revised:** 2026-09-13 (corrected: see the LICENSE note below)
 
 ## Context
 
@@ -127,6 +127,33 @@ therefore unverified**: the layer ordering, the `COPY --from` of the `uv` binary
 and whether `uv sync --locked` succeeds inside the image are all reasoned rather
 than demonstrated. **5.1 is not done until something builds it.** Building it in
 CI is the obvious answer and is a change to CI, which is a decision of its own.
+
+> **Built, and this reasoning was wrong in one place.** ADR 0020 put the build in
+> CI, and its first run failed:
+>
+> ```
+> OSError: License file does not exist: LICENSE
+>     at RUN uv sync --locked --no-dev
+> ```
+>
+> `pyproject.toml` has `license = { file = "LICENSE" }`, and **hatchling validates
+> that the file exists** when it builds the project. The reasoning above worked
+> out that the build backend reads `README.md`, because `readme` names it — and
+> then missed that `license` names a file for exactly the same reason. One
+> `COPY` line short.
+>
+> The correction is a rule rather than one more filename: **every path
+> `pyproject.toml` points at has to be in the image**, because the build backend
+> reads the manifest, not the `Dockerfile`. Today that is `README.md` and
+> `LICENSE`; a `license-files` glob or a dynamic version read from a file would
+> add more.
+>
+> It is worth being exact about what this says of the reasoning. Everything else
+> it predicted held: the layer ordering, the `COPY --from` of the `uv` binary, the
+> manylinux wheel installing on glibc, `--locked` succeeding. What it could not do
+> was notice an *absence*, which is the class of error reading cannot catch and
+> building does. That is the argument for ADR 0020 stated better than ADR 0020
+> managed to state it in advance.
 
 **Negative: reclaiming another library's loggers reaches into its configuration.**
 It works because uvicorn configures logging *before* it calls the application

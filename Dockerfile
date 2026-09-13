@@ -41,11 +41,21 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# Then the project. `alembic.ini` is here because ADR 0010 made `alembic` a
-# runtime dependency precisely so this image can run `alembic upgrade head`, and
-# `README.md` because `pyproject.toml` names it as the project's readme, which
-# the build backend reads.
-COPY alembic.ini README.md ./
+# Then the project. Three files, for three different reasons, and the third was
+# missing on the first attempt:
+#
+# - `alembic.ini`, because ADR 0010 made `alembic` a runtime dependency precisely
+#   so this image can run `alembic upgrade head`.
+# - `README.md`, because `pyproject.toml` has `readme = "README.md"`.
+# - `LICENSE`, because it has `license = { file = "LICENSE" }` — and **hatchling
+#   validates that the file exists** when it builds the project, failing with
+#   `OSError: License file does not exist: LICENSE`. ADR 0019 reasoned its way to
+#   the readme and missed this one; CI found it on the first build, which is what
+#   ADR 0020 exists for.
+#
+# The rule this leaves behind: **every path `pyproject.toml` points at has to be
+# in the image**, because the build backend reads the manifest, not the Dockerfile.
+COPY alembic.ini README.md LICENSE ./
 COPY src/ ./src/
 RUN uv sync --locked --no-dev
 

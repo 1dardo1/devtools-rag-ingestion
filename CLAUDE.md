@@ -138,6 +138,15 @@ Done so far:
   reclaims those loggers, and the formatter drops uvicorn's `color_message`,
   which duplicates the message with ANSI escapes inside. Verified by running the
   server: nine lines, all JSON on stdout, stderr empty.
+- **5.1 is closed, and CI closed it by failing first.** ADR 0020 added an `image`
+  job that builds the container and starts it. Its first run was red:
+  `OSError: License file does not exist: LICENSE`, because `pyproject.toml` has
+  `license = { file = "LICENSE" }` and **hatchling validates that the file
+  exists**, while the `Dockerfile` copied `README.md` and not `LICENSE`. ADR 0019
+  had reasoned its way to the readme and missed the licence — the same reason
+  stated twice in one manifest. **The rule, not the filename: every path
+  `pyproject.toml` points at has to be in the image**, because the build backend
+  reads the manifest, not the `Dockerfile`.
 - Twenty ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
 
 **Next: 5.2, the compose file** — one command that starts the service, the relay,
@@ -149,6 +158,12 @@ exist yet (4.3 is blocked), so 5.2 has to decide what it does about that.
 split out "making the relay's silence legible" as a decision also due before it.
 **Phase 5 (containers) is not blocked** and is the nearer half of the gate: the
 public URL is the only part still open.
+
+**`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
+are independent checks and one run should report every failure. In `image` they are
+a sequence, and copying the condition there made a failed build run `docker run`
+against a nonexistent image and then poll for thirty seconds, burying the real
+error. ADR 0020.
 
 **Four guards now hold rules that used to rely on review.** Two in
 `tests/unit/api/test_routes.py`: `test_every_endpoint_is_synchronous` fails if

@@ -103,8 +103,13 @@ jobs:
       # no connection until a request arrives (ADR 0017), so the server must come
       # up and serve its own OpenAPI document without a database anywhere — which
       # makes this a test of the image rather than of Postgres.
+      # No `!cancelled()` here or on the wait, unlike the `checks` job. There
+      # that condition is right — those are independent checks and one run should
+      # report every failure. These are a *sequence*: running `docker run` after a
+      # failed build only produces "Unable to find image", and then polling an
+      # address nothing is listening on wasted thirty seconds and buried the real
+      # error. Learned from this job's own first run.
       - name: Start the container
-        if: ${{ !cancelled() }}
         run: |
           docker run --detach --name ingestion \
             --env DATABASE_URL=postgresql://nobody@127.0.0.1:1/nothing \
@@ -112,7 +117,6 @@ jobs:
             devtools-rag-ingestion:ci
 
       - name: Wait for it to answer
-        if: ${{ !cancelled() }}
         run: |
           # Poll rather than sleep a fixed time: a fixed wait is either flaky or
           # slower than it needs to be, and usually both.

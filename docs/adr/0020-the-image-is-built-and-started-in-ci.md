@@ -94,7 +94,11 @@ service container it does not need.
 The wait polls rather than sleeping a fixed time. A fixed wait is either flaky or
 slower than necessary, and usually both.
 
-Both terminal steps run under `always()` and tolerate there being no container,
+The build, start and wait steps carry **no** `if:` condition, so each runs only if
+the previous one succeeded. That is a departure from the `checks` job, where
+`!cancelled()` makes every check report even after an earlier one failed, and the
+difference is the point: those are independent checks, these are a sequence. The
+two terminal steps do run under `always()` and tolerate there being no container,
 so a failed build still shows whatever the container said and the cleanup is never
 what turns the job red.
 
@@ -118,12 +122,32 @@ only touch documentation.** That is the cost of the `paths` filter being rejecte
 above. It is ~1–2 minutes in parallel with the checks, so it does not extend the
 critical path unless the build is slower than the test suite.
 
-**Negative: this ADR's own claims are still unverified as it is written.** The
-workflow has been validated as far as this environment allows — the YAML parses
-and every `run` block passes `bash -n` — but whether `docker build` succeeds is
-the question the job exists to answer, and it can only be answered by running it.
-**If the first run is red, the `Dockerfile` was wrong and ADR 0019's reasoning
-was where it was wrong.** That is the point.
+**It earned its place on the first run, which was red.** The build failed with
+`OSError: License file does not exist: LICENSE`: `pyproject.toml` has
+`license = { file = "LICENSE" }` and hatchling validates that the file exists, and
+the `Dockerfile` copied `README.md` but not `LICENSE`. ADR 0019 had reasoned its
+way to the readme and missed the licence, which is the same reason stated twice in
+one manifest. **That is an absence, and reading does not find absences — building
+does.** ADR 0019 is corrected in place, with the rule rather than the filename:
+every path `pyproject.toml` points at has to be in the image.
+
+**And it found a defect in itself on the same run.** `Start the container` and
+`Wait for it to answer` carried `if: ${{ !cancelled() }}`, copied from the `checks`
+job without re-deriving why it is there. In `checks` it is right: those steps are
+independent checks and one run should report every failure. In `image` they are a
+*sequence*, so after the failed build the job ran `docker run` against an image
+that did not exist ("Unable to find image"), then polled an address nothing was
+listening on for thirty seconds, and buried the real error under two misleading
+ones. The condition is gone from both steps; the terminal two keep `always()`,
+which is correct, because showing the logs and removing the container should happen
+however the job ended.
+
+**Negative: nothing verifies the workflow before it runs.** Both defects above
+were found by running it, because a workflow cannot be executed locally here. The
+YAML parsing and `bash -n` over every `run` block are the most this environment
+can check, and neither could have caught either of them: one was a missing file in
+another file, the other was a semantically wrong but syntactically perfect
+condition.
 
 **Negative: ADR 0008's "one job" is now "one job and one more".** The distinction
 drawn above — shared setup or not — is the rule that keeps it from becoming four
