@@ -225,7 +225,7 @@ Phase 3".
 
 **6.2 — Coverage.** Measure how much of the code the tests actually exercise, and report it automatically so the number cannot quietly drift.
 
-**6.3 — Secrets via environment.** Make sure no password, key or connection string is written down anywhere in the repository, and provide an example file showing which ones a deployment needs to supply.
+**6.3 — Secrets via environment.** Make sure no password, key or connection string is written down anywhere in the repository, and provide an example file showing which ones a deployment needs to supply. **Done, and held by a guard rather than by care:** `.env.example` lists exactly the settings the service reads, and three tests keep it honest — one scans every tracked file for credential shapes, one proves those patterns actually match, and one fails if the example and the settings drift apart. It found a credential-shaped example in `config.py` on its first run. **This unblocks 7.2, so the gate is one unit away.** See ADR 0022.
 
 **7.2 — Public deployment.** Put the service on the internet at an address anyone can send a document to.
 

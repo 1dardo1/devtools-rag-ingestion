@@ -24,10 +24,21 @@ class Settings(BaseSettings):
 
     database_url: str = Field(
         description=(
-            "A libpq connection URL, as psycopg and psql accept it:"
-            " postgresql://user:password@host:port/database"
+            "A libpq connection URL, as psycopg and psql accept it —"
+            " scheme, optional credentials, host, port and database."
+            " For example postgresql://postgres@localhost:5432/ingestion;"
+            " a deployment's will also carry a password."
         )
     )
+    """The example here is deliberately password-free.
+
+    It used to spell the shape out with a literal `user:password@` in it, which
+    `test_no_secret_is_committed` flagged on its first run — correctly, because
+    that is exactly the shape of the one credential this service could leak, and a
+    guard that makes an exception for "obvious placeholders" is a guard that can
+    be talked into ignoring the real thing. The example now matches what
+    `compose.yaml` actually runs, and says in prose what it no longer shows.
+    """
     log_level: str = "INFO"
 
     max_body_bytes: int = 7 * 1024 * 1024
