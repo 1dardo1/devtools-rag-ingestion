@@ -1,0 +1,53 @@
+# What the build context must not carry. ADR 0019.
+#
+# This file is a correctness concern before it is a speed one. `.venv` is the
+# clearest case: the build stage creates `/app/.venv` itself, and a local one
+# copied in would be a virtual environment built against *this* machine's
+# interpreter, silently shadowing the one `uv sync` produced. A `.env` is worse —
+# it would bake a developer's database password into a layer.
+#
+# Deny-by-default was considered and rejected: `*` followed by `!` exceptions is
+# safer against a future file nobody thought about, but it makes the list of what
+# the image *contains* implicit, and the Dockerfile already copies only the four
+# paths it needs. An explicit deny list says what is dangerous; that is the part
+# a reader needs to know.
+
+# Would shadow the environment the build stage creates.
+.venv/
+venv/
+
+# Would bake a developer's secrets into a layer.
+.env
+.env.*
+
+# Nothing in the image reads history, and it is the largest thing here.
+.git/
+.gitignore
+.github/
+
+# Bytecode and caches, all regenerable and none of it portable.
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# The test suite does not run in the runtime image: ADR 0011 has the integration
+# tests starting their own containers, which a container cannot do for itself.
+tests/
+
+# Documentation. The ADRs are the reason this repository is worth reading and
+# none of them is read at runtime.
+docs/
+*.md
+!README.md
+
+# Editor and operating-system noise.
+.idea/
+.vscode/
+.DS_Store
+
+# This file and the Dockerfile itself.
+Dockerfile
+.dockerignore

@@ -36,6 +36,15 @@ _RESERVED = frozenset(
     )
 ) | {"message", "asctime"}
 
+# The one library-specific exclusion in this module, and it is here rather than in
+# `_RESERVED` because it is not a `LogRecord` attribute: `uvicorn` passes
+# `color_message` in `extra` on several of its lines, holding the same message
+# again with ANSI escape sequences in it. Nested under `context` it is neither
+# context nor readable — it is a second rendering of `message`, escape codes and
+# all, in a log that is meant to be machine-read. Dropped rather than rendered.
+# ADR 0019.
+_NOISE = frozenset({"color_message"})
+
 # Set per request by the middleware in `api/request_id.py`, read here. A
 # `ContextVar` rather than an argument threaded through every call site: the
 # point of a correlation id is that code which knows nothing about HTTP still
@@ -78,7 +87,9 @@ class JsonFormatter(logging.Formatter):
             payload["stack"] = self.formatStack(record.stack_info)
 
         context = {
-            key: value for key, value in vars(record).items() if key not in _RESERVED
+            key: value
+            for key, value in vars(record).items()
+            if key not in _RESERVED and key not in _NOISE
         }
         if context:
             payload["context"] = context
@@ -103,7 +114,45 @@ def configure(level: int | str = logging.INFO, stream: IO[str] | None = None) ->
     `force=True` drops handlers a previous call installed, so configuring twice
     does not log everything twice. That matters more than it sounds: Alembic's
     `env.py` also configures logging when migrations run in-process.
+
+    It also reclaims the server's own loggers, so that the JSON-on-stdout promise
+    above covers everything the process says rather than only the parts this
+    repository wrote. See `_reclaim`.
     """
     handler = logging.StreamHandler(stream if stream is not None else sys.stdout)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=level, handlers=[handler], force=True)
+    _reclaim(_SERVER_LOGGERS)
+
+
+# uvicorn's own loggers, which it configures before it calls the application
+# factory — verified, which is what makes reclaiming them here possible at all.
+_SERVER_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access")
+
+
+def _reclaim(names: tuple[str, ...]) -> None:
+    """Take back loggers another library configured for itself.
+
+    **Why this is needed at all.** `uvicorn` installs its own handlers on these
+    loggers with `propagate = False`, writing plain text to **stderr**. Left
+    alone, a container's output is our JSON on stdout interleaved with uvicorn's
+    prose on stderr — two formats and two streams, which is precisely what ADR
+    0016 chose one of each to avoid. And since nothing in this service logs
+    anything yet, in practice the *only* lines a deployment emitted would be the
+    ones in the wrong format.
+
+    Clearing the handlers and restoring propagation routes those records through
+    the root handler configured above, so "one JSON object per line on stdout"
+    is true of everything the process says, not only of the parts we wrote.
+
+    **This reaches into another library's configuration, which is the cost.** It
+    is done here rather than through uvicorn's `--log-config` because that would
+    be a second place configuring logging — a `dictConfig` file duplicating this
+    module. ADR 0019. It depends on uvicorn configuring logging *before* the
+    factory runs, which is its behaviour today and not a promise it makes, so
+    `test_the_server_loggers_are_reclaimed` fails if that stops holding.
+    """
+    for name in names:
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.propagate = True
