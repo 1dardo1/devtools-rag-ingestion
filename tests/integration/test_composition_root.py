@@ -18,6 +18,7 @@ from rag_ingestion.api.request_id import HEADER
 from rag_ingestion.config import Settings
 from rag_ingestion.domain.collection import Collection
 from rag_ingestion.domain.collection_id import CollectionId
+from rag_ingestion.domain.limits import IngestionLimits
 from rag_ingestion.infrastructure.postgres.collection_repository import (
     PostgresCollectionRepository,
 )
@@ -90,6 +91,58 @@ class TestTheWholeServiceOverHttp:
         assert announced[0][0] == "DocumentIngested"
         assert announced[0][1]["document_id"] == document_id
         assert announced[0][2] is None  # the relay has not sent it
+
+    def test_the_largest_legal_document_survives_the_body_cap(
+        self, client: TestClient, collection_id: str, migrated: Connection
+    ) -> None:
+        """The two size limits in a real relationship, not an arithmetic one.
+
+        The domain accepts 5 MiB of content; base64 inside JSON makes that about
+        6.7 MiB on the wire, and `max_body_bytes` has to clear it. A unit test
+        compares the two numbers — this one actually pushes a document of exactly
+        the domain's maximum through the real stack and reads it back out of
+        PostgreSQL, so the cap, the base64 decode, the TOASTed column and the
+        domain rule are all exercised against the same bytes. ADR 0018.
+        """
+        largest = IngestionLimits().max_document_size_in_bytes
+        content = b"x" * largest
+
+        response = client.post(
+            f"/collections/{collection_id}/documents", json=_document(content)
+        )
+
+        assert response.status_code == HTTPStatus.ACCEPTED, (
+            "a document at the domain's maximum was refused;"
+            f" status {response.status_code}, body {response.text[:200]}"
+        )
+
+        stored = migrated.execute(
+            "SELECT size_in_bytes, length(content) FROM documents"
+            " WHERE document_id = %s",
+            (response.json()["document_id"],),
+        ).fetchone()
+        assert stored is not None
+        assert stored[0] == largest
+        assert stored[1] == largest
+
+    def test_a_document_one_byte_over_the_domain_limit_is_refused_by_the_domain(
+        self, client: TestClient, collection_id: str, migrated: Connection
+    ) -> None:
+        """And by the domain, not by the cap — the `code` is what tells them apart.
+
+        Both answer `413`. This asserts the refusal came from the rule rather
+        than the transport, which is the distinction ADR 0018 leans on the `code`
+        field to carry.
+        """
+        content = b"x" * (IngestionLimits().max_document_size_in_bytes + 1)
+
+        response = client.post(
+            f"/collections/{collection_id}/documents", json=_document(content)
+        )
+
+        assert response.status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+        assert response.json()["code"] == "document_too_large"
+        assert migrated.execute("SELECT count(*) FROM documents").fetchone() == (0,)
 
     def test_the_status_of_a_posted_document_can_be_read_back(
         self, client: TestClient, collection_id: str

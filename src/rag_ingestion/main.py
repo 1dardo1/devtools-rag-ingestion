@@ -5,9 +5,9 @@ or a message channel is editing one file rather than hunting through a codebase.
 `docs/BUILD-PLAN.md` adds the other half: the web layer and the storage chain
 have been kept apart since 4.1, and this is where they are introduced.
 
-**Four things here are load-bearing, and no type checker can check any of
+**Five things here are load-bearing, and no type checker can check any of
 them.** They are collected in one docstring because a reader who changes this
-file needs all four at once:
+file needs all five at once:
 
 1. **All three adapters are built from one connection.** A publisher and a
    repository on two different connections typecheck perfectly and are not
@@ -21,6 +21,10 @@ file needs all four at once:
    A forgotten one is a runtime `500`, not a compile error.
 4. **`observability.configure` is called here**, because it is deliberately not
    called on import. ADR 0016.
+5. **The body-size cap is added last, so it runs first.** `add_middleware`
+   inserts at the front of the list and the stack wraps that list in reverse, so
+   the last one added is the outermost. A cap that runs after something has read
+   the body has already lost. ADR 0018.
 """
 
 from collections.abc import Callable, Generator
@@ -31,8 +35,9 @@ from fastapi import Depends, FastAPI
 from psycopg.rows import TupleRow
 
 from rag_ingestion import observability
-from rag_ingestion.api import dependencies
+from rag_ingestion.api import body_limit, dependencies
 from rag_ingestion.api.app import create_app
+from rag_ingestion.api.body_limit import BodySizeLimitMiddleware
 from rag_ingestion.api.request_id import RequestIdMiddleware
 from rag_ingestion.application.create_collection import CreateCollection
 from rag_ingestion.application.get_ingestion_status import GetIngestionStatus
@@ -141,7 +146,13 @@ def build(settings: Settings | None = None) -> FastAPI:
         return GetIngestionStatus(documents=PostgresDocumentRepository(connection))
 
     app = create_app()
+    body_limit.register(app)
+    # Added last, which is what makes it run *first*: `add_middleware` inserts at
+    # the front of `user_middleware`, and the stack wraps that list in reverse, so
+    # the front is the outermost layer. A cap that runs after something has read
+    # the body would not be a cap. Held by `test_the_cap_is_the_outermost_middleware`.
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=resolved.max_body_bytes)
     app.dependency_overrides[dependencies.ingest_document] = ingest_document
     app.dependency_overrides[dependencies.create_collection] = create_collection
     app.dependency_overrides[dependencies.get_ingestion_status] = get_ingestion_status

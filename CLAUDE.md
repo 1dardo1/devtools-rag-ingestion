@@ -62,7 +62,8 @@ adapters, with the dependency arrow pointing inward.
 
 ## Current phase
 
-**Phase 2 is complete.** Phases 0, 1 and 2 are merged.
+**Phase 2 is complete.** Phases 0, 1 and 2 are merged, and Phase 4 is complete
+except 4.3.
 
 Done so far:
 
@@ -108,19 +109,41 @@ Done so far:
   logging and adds the request-id middleware. ADR 0017. **Phase 4's completion
   criterion is half met and machine-verified** — posting a document over HTTP
   produces the row *and* its outbox row; the Redis half is 4.3.
-- Seventeen ADRs, in `docs/adr/`. 263 tests — 214 unit, 49 integration.
+- **The body-size cap.** `api/body_limit.py`: a pure-ASGI middleware added *last*
+  in `build` so it runs *first*, refusing an over-sized request **before reading
+  it**. This closes the gap ADR 0015 recorded as "a real gap rather than a
+  trade-off" and is written up in ADR 0018. Two numbers now describe sizes and
+  they are not the same: `max_document_size_in_bytes` is 5 MiB of *decoded
+  content* and is a domain rule; `max_body_bytes` is 7 MiB *on the wire* and is a
+  transport rule, larger because base64 expands by a third. Both answer `413`;
+  the `code` field is what tells `document_too_large` from `request_too_large`.
+- Eighteen ADRs, in `docs/adr/`. 282 tests — 231 unit, 51 integration.
 
-**Next: 4.3, the relay — and it is blocked twice over.** The graph reads
+**Next: 5.1, the Dockerfile.** `uvicorn` is approved as the dependency — **plain,
+not `uvicorn[standard]`**, because the extras bring `uvloop` (which barely touches
+a threadpool-based service), `watchfiles` (development only), `websockets`
+(unused) and `python-dotenv` (a *second* configuration mechanism beside
+`pydantic-settings`). **A Dockerfile is deployment configuration, so its shape
+needs explicit approval before anything is written.**
+
+**4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
 split out "making the relay's silence legible" as a decision also due before it.
 **Phase 5 (containers) is not blocked** and is the nearer half of the gate: the
 public URL is the only part still open.
 
-**Two guards now hold rules that used to rely on review**, both in
+**Four guards now hold rules that used to rely on review.** Two in
 `tests/unit/api/test_routes.py`: `test_every_endpoint_is_synchronous` fails if
 any endpoint is declared `async def` (ADR 0007), and
 `test_the_application_ships_unwired` fails if 4.4 starts satisfying its own
-dependencies.
+dependencies. Two more for the cap:
+`test_the_body_cap_cannot_refuse_a_document_the_domain_accepts` fails if the wire
+cap is ever set where it would shadow the domain rule, and
+`test_the_cap_is_the_outermost_middleware` fails if anything is added after it in
+`build`. **`add_middleware` inserts at the *front* of `user_middleware`** and the
+stack wraps that list in reverse, so the last middleware added is the first to
+run — verified in Starlette 1.6.0's source after an earlier version of that test
+asserted the opposite index and failed.
 
 **The composition root is `main.py`, and ADR 0017 records what it had to get
 right.** Two traps worth carrying forward:
