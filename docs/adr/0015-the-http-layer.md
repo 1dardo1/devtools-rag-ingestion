@@ -1,7 +1,7 @@
 # 15. The HTTP layer: FastAPI, base64 content, and per-request use cases
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-12
+- **Last revised:** 2026-09-13
 
 ## Context
 
@@ -166,13 +166,24 @@ make it early. Nothing in the type system can tell that an override is missing.
 is about 6.7 MiB of JSON on the wire. Acceptable for documentation pages
 submitted by a pipeline; it would not be for a service taking large binaries.
 
-**Negative, and this one is a real gap rather than a trade-off: the size limit is
+**Negative, and this one was a real gap rather than a trade-off: the size limit is
 enforced after the body has been read.** `DocumentTooLargeError` is raised by the
 domain, which means the bytes are already in memory; a caller sending 500 MB gets
 a `413` *after* the service has read 500 MB. A status code is not a defence. A
 body-size cap belongs at the server or proxy, and Phase 13 is where security
 hardening lives — but it is worth saying plainly that nothing here protects
 against that today, and that 5.1 deploying this behind something is not optional.
+
+> **Closed, and earlier than this ADR expected. See ADR 0018.** Deferring to
+> Phase 13 was wrong on ordering: the gate is a *public* URL, which arrives long
+> before the phase that owns hardening, and "nothing here protects against that
+> today" becomes an exposure the moment the URL exists. The "at the server" half
+> also turned out not to be available — `uvicorn` has no body-size option at all.
+> A pure-ASGI cap in `api/body_limit.py` now refuses an over-sized request before
+> reading it. One thing this ADR did get right and ADR 0018 leans on: the `code`
+> field. `413` is now shared by two refusals — the domain's `document_too_large`
+> and the transport's `request_too_large` — which is exactly the case the field
+> was introduced for.
 
 **Negative: three refusals share `409`.** Deliberate, and the `code` field is the
 mitigation, but a client that ignores the body cannot distinguish them.

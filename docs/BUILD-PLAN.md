@@ -54,6 +54,7 @@ flowchart TD
 
     subgraph PH5["Phase 5 — Containers"]
         direction TB
+        ADD_CAP["[+] Body-size cap"]
         U51["5.1 Dockerfile"]
         U52["5.2 docker compose"]
     end
@@ -99,7 +100,7 @@ flowchart TD
     U44 --> U45
     ADD_LOG --> U45
 
-    U45 --> U51 --> U52
+    U45 --> ADD_CAP --> U51 --> U52
     U45 --> U61 --> U62
     U45 --> U63
 
@@ -116,7 +117,7 @@ flowchart TD
     classDef added stroke-dasharray: 6 4
     classDef outside stroke-dasharray: 2 3
     class GATE gate
-    class ADD_MIG,ADD_LOG added
+    class ADD_MIG,ADD_LOG,ADD_CAP added
     class EXT3 outside
 ```
 
@@ -214,6 +215,8 @@ Phase 3".
 
 > **Done.** `main.py`, recorded in ADR 0017. Posting a document over HTTP now produces a row in `documents` and its row in `outbox`, in one transaction, proved by an integration test rather than by hand — which is half of the phase's completion criterion. The other half is the Redis message, and that is 4.3.
 
+**[+] Body-size cap.** Stop the service spending memory on a request it has already decided to refuse. Today a caller sending half a gigabyte gets told it is too large only after the service has read all of it, which is not a defence. Settled before the Dockerfile because the public address the gate asks for arrives long before the phase that owns hardening. See ADR 0018.
+
 **5.1 — Dockerfile.** Package the service so it runs identically on any machine, regardless of what is installed there.
 
 **5.2 — docker compose.** One command that starts everything a developer needs — the service, the relay, the database, the message channel — on a computer that has none of them.
@@ -238,13 +241,14 @@ Phase 3".
 
 ## Work added to the plan
 
-Two items the roadmap did not name. Neither is large; both are cheap now and awkward later.
+Items the roadmap did not name. None is large; each is cheap now and awkward later.
 
 | Item | Why it is missing-work rather than scope creep | When it is needed |
 |---|---|---|
 | **Migration tool decision** | The roadmap says the database schema changes but names no mechanism for applying those changes repeatably across machines and production. It turned out to sit behind a larger unmade choice — what the adapter talks to PostgreSQL *with* — so both were taken together. **Settled: psycopg 3 with hand-written SQL, migrated by Alembic running `op.execute` and no declared models. See ADR 0010.** Applied: revision `0001` creates the schema, recorded in **ADR 0012**. | ~~Before 4.1~~ done |
 | **Logging and error reporting** | Neither `ROADMAP.md` nor `ARCHITECTURE.md` gives this service an observability story. The relay runs unattended, where silence and success look identical. **The mechanism is settled: the standard library's `logging`, one JSON object per line on stdout. See ADR 0016.** But writing that ADR showed the stated problem is *not* solved by it — a crashed relay and an idle relay both write nothing — so the half that makes silence legible is split out below. | ~~Before 4.5~~ mechanism done |
 | **Making the relay's silence legible** | Split out of the item above once it became clear that error reporting cannot distinguish a relay that stopped from a relay with nothing to do. Needs something that speaks when there is nothing to say. ADR 0016 proposes the API reporting the age of the oldest unpublished outbox row — the relay's liveness read through the database both processes already share, rather than a new channel between them. | Before 4.3 |
+| **Body-size cap** | ADR 0015 recorded it as "a real gap rather than a trade-off" and deferred it to Phase 13, where hardening lives. The ordering was wrong: the gate is a **public** URL, which arrives long before that phase, and `uvicorn` turns out to have no body-size option at all, so "at the server" was not available either. **Settled: a pure-ASGI cap in `api/body_limit.py`, the number in `Settings`. See ADR 0018.** | ~~Before the public URL~~ done |
 
 ### A dependency this plan had backwards
 
