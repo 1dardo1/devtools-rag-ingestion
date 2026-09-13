@@ -1,0 +1,126 @@
+# One command that starts the service on a machine with nothing installed.
+# ADR 0021.
+#
+# `compose.yaml`, the name the Compose specification prefers, rather than
+# `docker-compose.yml` — which is the v1 name and still works, but naming a file
+# after a version that no longer ships is how a reader learns the wrong thing
+# first.
+#
+# **This is for a developer's machine, and only that.** It is not the deployment:
+# 7.2 puts the service on the internet, and nothing here is a template for it.
+# The clearest signal of that is the database authentication below.
+#
+# **Three of the four services `ROADMAP.md` 5.2 names are here, and the relay is
+# not.** It does not exist — 4.3 is blocked on Phase 3 of the contracts
+# repository and on the silence-legibility decision ADR 0016 split out — and
+# Redis is not here either, because a Redis nothing reads from would pass its
+# health check while making the outbox look drained. That half of 5.2 arrives
+# with 4.3, in the change that can actually test it.
+
+services:
+  postgres:
+    # Pinned, for ADR 0011's reason for pinning the test container: a stack whose
+    # behaviour depends on when it was started is not a stack you can reason
+    # about, and `latest` moves.
+    image: postgres:16
+    environment:
+      # **No password, anywhere.** There is no secret to leak because there is no
+      # secret, which is the point: 6.3 asks that no credential live in this
+      # repository, and a "development password" committed here is a
+      # secret-shaped string that the next reader cannot tell from a real one
+      # without reading the surrounding comment.
+      #
+      # This is safe *here* and would be indefensible in a deployment. It is
+      # local-only by construction: the port below is bound to the loopback
+      # address, so nothing outside this machine can reach it.
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ingestion
+    ports:
+      # `127.0.0.1:` and not a bare `5432:5432`. Without the address Docker binds
+      # to every interface, which on a laptop on a shared network publishes a
+      # password-less database to that network — and does it by editing firewall
+      # rules directly, so a host firewall does not stop it.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # `migrate` must wait for PostgreSQL to be *accepting connections*, not
+      # merely started: the container reports running several seconds before the
+      # server is listening, and a migration against a socket that is not there
+      # yet fails for a reason that looks like a configuration error.
+      #
+      # `-d ingestion` matters. `pg_isready` without it probes the default
+      # database, which answers before the initdb scripts have finished creating
+      # this one.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ingestion"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    volumes:
+      # A named volume, so a restart keeps the data and `docker compose down -v`
+      # is the deliberate way to discard it. Without this, every restart is a
+      # fresh database and the migration step silently becomes the only thing
+      # that ever runs.
+      - postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    # The same image as the service, built from the same `Dockerfile`, so the
+    # migrations applied and the code that reads them are the same commit. A
+    # separate image for migrations is two versions of one schema.
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      # A plain libpq URL. `env.py` adds SQLAlchemy's `postgresql+psycopg://`
+      # prefix itself — ADR 0017 made one variable serve both readers, because
+      # `psycopg.connect` rejects the SQLAlchemy form outright.
+      DATABASE_URL: postgresql://postgres@postgres:5432/ingestion
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Runs to completion and exits. That is what `app` waits on below, and it is
+    # why this is a service rather than something a human remembers to run.
+    restart: "no"
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres@postgres:5432/ingestion
+      LOG_LEVEL: INFO
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      # Without this, `docker compose up --wait` treats `app` as ready the moment
+      # the container is *running*, which is before uvicorn has bound the port —
+      # so a caller that waited would race the server it waited for.
+      #
+      # `python3` rather than `curl`, because the image is `python:3.14-slim` and
+      # has no `curl`; installing one to answer a health check would be a package
+      # in the runtime image for the benefit of the check.
+      #
+      # `/openapi.json` is used as the probe because this service has no health
+      # endpoint of its own. That is a gap rather than a preference — a probe
+      # should not depend on the documentation route — but adding an endpoint is a
+      # change to the API and so a decision rather than a detail.
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/openapi.json").read()
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      # The server is listening in well under a second, so the retries above are
+      # the whole budget; a start period would only delay the first probe.
+    depends_on:
+      migrate:
+        # **This is the whole reason `migrate` is a service.** ADR 0019 decided
+        # the *image* does not migrate on startup, because N replicas would race
+        # and a failed migration would be a crashloop instead of a visibly failed
+        # deploy. Neither objection applies here: Compose starts exactly one
+        # migration container, waits for it to finish, and only then starts the
+        # app. One migrator cannot race itself.
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

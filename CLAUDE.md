@@ -147,11 +147,26 @@ Done so far:
   stated twice in one manifest. **The rule, not the filename: every path
   `pyproject.toml` points at has to be in the image**, because the build backend
   reads the manifest, not the `Dockerfile`.
-- Twenty ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
+- **5.2, the compose stack.** `compose.yaml` with `app`, `postgres` and a one-shot
+  `migrate` that `app` waits on via `service_completed_successfully`. **That does
+  not contradict ADR 0019:** it refused to migrate from the *image's* `CMD` because
+  N replicas race and a failed migration becomes a crashloop; Compose starts
+  exactly one migrator, to completion, so neither objection reaches it. No Redis
+  and no relay — 4.3 is blocked, and a Redis nothing reads from passes its health
+  check while making the outbox look drained. `POSTGRES_HOST_AUTH_METHOD=trust`
+  with the ports bound to `127.0.0.1`: no secret in the repository because there is
+  no secret. A third CI job asserts `docker compose up --wait` and then posts a
+  document through the stack, which is what proves `migrate` ran. ADR 0021.
+- **`docker compose up --wait` treats a service with no health check as ready when
+  its container is merely running**, which is before uvicorn has bound the port. So
+  `app` has a health check, probing with `python3` because the image has no `curl`.
+  It uses `/openapi.json` for want of a health endpoint — a real gap, and adding
+  one is an API change.
+- Twenty-one ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
 
-**Next: 5.2, the compose file** — one command that starts the service, the relay,
-PostgreSQL and Redis on a machine that has none of them. Note the relay does not
-exist yet (4.3 is blocked), so 5.2 has to decide what it does about that.
+**Next: Phase 6 — 6.1 integration tests, 6.2 coverage, 6.3 secrets — or 7.3, the
+README.** Phase 5 is as done as it can be until 4.3 unblocks. 6.2 and 6.3 both
+touch CI or configuration, so both need asking first.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016

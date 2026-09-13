@@ -48,6 +48,8 @@ docs/
 .vscode/
 .DS_Store
 
-# This file and the Dockerfile itself.
+# This file, the Dockerfile, and the compose file that builds from it — none of
+# which the image it produces has any use for.
 Dockerfile
 .dockerignore
+compose.yaml
