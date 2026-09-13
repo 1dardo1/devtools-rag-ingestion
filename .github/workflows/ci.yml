@@ -143,3 +143,54 @@ jobs:
       - name: Stop the container
         if: ${{ always() }}
         run: docker rm --force ingestion || true
+
+  # A third job, on the rule ADR 0008 now carries: one that would repeat the `uv`
+  # setup belongs in `checks`, and this repeats none of it. Separate from `image`
+  # rather than appended to it because that job's name is what appears as a status
+  # line, and "Image builds and starts" testing the compose stack as well would
+  # make the name lie. ADR 0021.
+  compose:
+    name: Compose starts the stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # `ROADMAP.md` 5.2 is "done when: `docker compose up` works from a clean
+      # machine", and a runner is exactly that. `--wait` is the whole reason this
+      # is one command: it returns when every service is healthy or has completed,
+      # so it *is* the assertion that `postgres` became healthy, `migrate` ran to
+      # completion, and `app` started — the ordering that is the only genuinely
+      # new mechanism in the file.
+      - name: Start the stack
+        run: docker compose up --detach --wait
+
+      - name: Post a document through the stack
+        run: |
+          # Not just a liveness check. The stack's reason to exist is that the
+          # schema is there before the app serves a request, so this exercises the
+          # path that proves `migrate` actually ran: create a collection, then post
+          # a document into it. A 404 or a 500 here means the tables are missing.
+          collection=$(curl --silent --fail --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "fastapi-docs"}' \
+            http://127.0.0.1:8000/collections | python3 -c 'import json,sys; print(json.load(sys.stdin)["collection_id"])')
+          echo "created collection $collection"
+
+          content=$(printf 'compose brought the whole stack up.' | base64 --wrap=0)
+          curl --silent --fail --show-error --output /dev/null --write-out '%{http_code}\n' \
+            --header 'Content-Type: application/json' \
+            --data "{\"content\": \"$content\", \"metadata\": {\"source_library\": \"fastapi\", \"doc_type\": \"tutorial\"}}" \
+            "http://127.0.0.1:8000/collections/$collection/documents"
+
+      - name: Show what the stack said
+        if: ${{ always() }}
+        run: docker compose logs || echo "no stack to show logs for"
+
+      # `--volumes`, so the named volume goes too. A runner is thrown away anyway;
+      # the flag is here because this is also the command a developer should copy.
+      - name: Tear the stack down
+        if: ${{ always() }}
+        run: docker compose down --volumes || true

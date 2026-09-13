@@ -219,7 +219,7 @@ Phase 3".
 
 **5.1 — Dockerfile.** Package the service so it runs identically on any machine, regardless of what is installed there. See ADR 0019. **Proved by CI rather than here:** this environment has a Docker client without a daemon, so a second CI job builds the image *and starts it*, which is the half that would actually have been broken — the `PATH`, the `CMD`, and whether the non-root user can read the virtual environment. ADR 0020.
 
-**5.2 — docker compose.** One command that starts everything a developer needs — the service, the relay, the database, the message channel — on a computer that has none of them.
+**5.2 — docker compose.** One command that starts everything a developer needs on a computer that has none of them. **Split, because the relay does not exist:** `compose.yaml` brings up the service, the database, and a one-shot migration step that runs before the service so a clean machine really does work with one command. The message channel and the relay arrive with 4.3 — a Redis nothing reads from would pass its health check while making the outbox look drained, which is worse than its absence. CI asserts the stack starts and that a document can be posted through it. See ADR 0021.
 
 **6.1 — Integration tests.** Prove the whole thing works against real software rather than stand-ins: a genuine database and message channel, started fresh for the tests and thrown away afterwards.
 

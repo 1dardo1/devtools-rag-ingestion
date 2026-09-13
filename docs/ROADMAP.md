@@ -76,6 +76,14 @@ piece of engineering in this service.
 | 5.1 | Multi-stage `Dockerfile` | Image builds |
 | 5.2 | `docker compose`: app, relay, Postgres, Redis | `docker compose up` works from a clean machine |
 
+> **5.2 is half done, and the half that is missing is named.** `compose.yaml` runs
+> `app`, `postgres` and a one-shot `migrate`; CI asserts that `docker compose up`
+> works on a machine that has never seen this repository, and that a document can
+> be posted through the stack. **Redis and the relay are not there**, because the
+> relay does not exist — 4.3 is blocked — and a Redis nothing reads from would pass
+> its health check while making the outbox look drained. That half arrives with
+> 4.3, in the change that can exercise it. See ADR 0021.
+
 ## Phase 6 — Quality
 
 | # | Unit | Done when |
