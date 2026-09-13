@@ -20,6 +20,7 @@ code that did not exist.
 import json
 import logging
 import sys
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import IO
 
@@ -35,11 +36,19 @@ _RESERVED = frozenset(
     )
 ) | {"message", "asctime"}
 
-_ENVELOPE = ("timestamp", "level", "logger", "message")
+# Set per request by the middleware in `api/request_id.py`, read here. A
+# `ContextVar` rather than an argument threaded through every call site: the
+# point of a correlation id is that code which knows nothing about HTTP still
+# gets tagged, and a parameter would have to reach the domain to manage that.
+request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 class JsonFormatter(logging.Formatter):
     """One JSON object per line.
+
+    `request_id` is in the envelope rather than in `context`, because it is not
+    something a caller passed in: it identifies the request every other field
+    belongs to, which is what makes several lines readable as one story.
 
     **Anything passed in `extra` is nested under `context`, never merged into
     the top level.** Flat is more ergonomic to query and was rejected: a caller

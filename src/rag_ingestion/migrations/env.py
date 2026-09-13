@@ -47,14 +47,28 @@ def _database_url() -> str:
     `alembic.ini` leaves `sqlalchemy.url` empty rather than naming a database.
     A URL in a checked-in file is a credential in version control the first
     time someone adds a password to it.
+
+    **`DATABASE_URL` holds a plain libpq URL and the dialect is added here.**
+    One variable has to serve two readers — this, and the service's `Settings` —
+    and they cannot share the SQLAlchemy form: `psycopg.connect` rejects
+    `postgresql+psycopg://` outright with `missing "=" after ...`. The libpq
+    form is the one every PostgreSQL tool already accepts, so it is the
+    canonical shape and SQLAlchemy's prefix is this file's problem. ADR 0017.
     """
     configured = config.get_main_option(_URL_OPTION, default="")
     if configured:
-        return configured
+        return _with_dialect(configured)
     from_environment = os.environ.get(_URL_ENVIRONMENT_VARIABLE, "")
     if from_environment:
-        return from_environment
+        return _with_dialect(from_environment)
     raise RuntimeError(_NO_URL)
+
+
+def _with_dialect(url: str) -> str:
+    """Name psycopg as the driver, unless a caller already named one."""
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:

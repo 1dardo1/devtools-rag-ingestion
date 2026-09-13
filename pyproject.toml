@@ -21,6 +21,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.5",
     "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
 ]
 
 [build-system]
