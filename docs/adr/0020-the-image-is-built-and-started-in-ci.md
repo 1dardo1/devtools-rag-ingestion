@@ -67,6 +67,17 @@ is the cost ADR 0008 was trying to avoid, arrived at from the other direction.
   verified local run, and the step prints the container's logs unconditionally, so
   a human sees the format on every run. Worth revisiting if it ever regresses.
 
+  That last sentence held immediately. The first green run printed, from inside
+  the container:
+
+  ```json
+  {"timestamp": "…", "level": "INFO", "logger": "uvicorn.error", "message": "Started server process [1]"}
+  {"timestamp": "…", "level": "INFO", "logger": "uvicorn.access", "message": "172.17.0.1:56326 - \"GET /openapi.json HTTP/1.1\" 200"}
+  ```
+
+  Which closes ADR 0019's logging claim where it matters, by printing it rather
+  than by asserting it.
+
 ### What the job does not do
 
 - **No registry, no push.** Nothing needs the image to exist anywhere yet;
@@ -108,6 +119,13 @@ what turns the job red.
 checked, and so is "image starts and serves", which is the part that would
 actually have been broken.
 
+**`uvicorn` runs as PID 1.** The container's first log line says
+`Started server process [1]`, so there is no init process between it and the
+kernel and signal handling is uvicorn's alone. That is fine as it stands —
+uvicorn handles `SIGTERM` and shuts down gracefully — but it is the kind of
+arrangement worth knowing about before anything else is added to the image's
+startup, because PID 1 does not reap orphans.
+
 **A broken `Dockerfile` can no longer merge.** It could before: ADR 0019 went in
 with the file unverified, which was the honest thing to do at the time and is not
 a state to stay in.
@@ -117,10 +135,17 @@ decision can do.** `main` is protected by a ruleset that names its required
 checks, and that is configuration in the GitHub interface rather than in this
 repository. Until somebody adds it, the job reports but does not block.
 
-**Negative: every pull request now pays for a Docker build, including ones that
-only touch documentation.** That is the cost of the `paths` filter being rejected
-above. It is ~1–2 minutes in parallel with the checks, so it does not extend the
-critical path unless the build is slower than the test suite.
+**Every pull request now pays for a Docker build, including ones that only touch
+documentation — and that cost turned out to be far smaller than this ADR first
+claimed.** It was written as "~1–2 minutes"; measured on the first green run, the
+build takes **8 seconds** and the whole job 14, against 35 for `checks`. So the
+image job finishes *before* the checks and adds nothing to the critical path. The
+estimate was wrong by an order of magnitude, which is recorded rather than quietly
+edited because it was also the main argument for the `paths` filter this ADR
+rejected — and that argument was weaker than it looked.
+
+This also retires the reason for caching layers: there is now a measurement, and
+it says there is nothing to optimise.
 
 **It earned its place on the first run, which was red.** The build failed with
 `OSError: License file does not exist: LICENSE`: `pyproject.toml` has
