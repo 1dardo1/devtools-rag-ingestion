@@ -171,9 +171,26 @@ Done so far:
   `test_the_guard_can_actually_see_a_secret` found a bug in the guard itself:
   **`\b` does not match inside `POSTGRES_PASSWORD`**, because `_` is a word
   character, so the assignment pattern matched nothing. ADR 0022.
-- Twenty-two ADRs, in `docs/adr/`. 289 tests — 238 unit, 51 integration.
+- **7.3, the README.** Rewritten around what a reader needs in the order they need
+  it, with **three `curl` commands that were run against a real server** rather
+  than composed from memory — `201`, `202`, `200`, plus three refusals checked the
+  same way. Running them found an error a name-based guard never could:
+  `ingested_at` is `…T08:17:34.105557Z`, not `+00:00`. A sixth guard,
+  `tests/unit/test_the_readme_describes_the_real_api.py`, holds routes, field names
+  and refusal codes **in both directions** — deleting the section fails it too. It
+  also found three stale claims the old README carried: adapters that do not exist
+  (the relay and the Redis publisher), "the five commands CI runs" when CI has
+  three jobs, and a link to the contracts repo that only resolved with both clones
+  side by side. ADR 0023.
+- Twenty-three ADRs, in `docs/adr/`. 296 tests — 245 unit, 51 integration.
 
-**Next: 7.2, the public deployment — and it is the gate.** `docs/BUILD-PLAN.md`'s
+**Next: 7.2, the public deployment — and it is the gate. It is waiting on Carlos**,
+who asked for options without payment barriers; the free tiers could not be verified
+from here (the egress proxy blocks the providers' own pricing pages), so the platform
+is his to pick and then this repository writes the configuration for it. 7.3 was done
+in the meantime.
+
+**On 7.2 when it resumes:** `docs/BUILD-PLAN.md`'s
 graph has `U52 --> U72` and `U63 --> U72`; both are now done, so nothing blocks it.
 `CLAUDE.md` ranks the gate above everything else: green CI is done, the public URL
 is the only half still open. Everything left in Phase 6 (coverage, more integration
