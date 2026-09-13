@@ -162,11 +162,25 @@ Done so far:
   `app` has a health check, probing with `python3` because the image has no `curl`.
   It uses `/openapi.json` for want of a health endpoint — a real gap, and adding
   one is an API change.
-- Twenty-one ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
+- **6.3, secrets via the environment.** `.env.example` plus three guards in
+  `tests/unit/test_no_secret_is_committed.py`. **No placeholder allowance**, on
+  purpose: the repository contains no credential-shaped string at all, because a
+  guard that excuses `PASSWORD` is a guard that can be talked into excusing the
+  real thing. It found one on its first run — `config.py`'s `database_url`
+  description illustrated the shape with a literal password — and
+  `test_the_guard_can_actually_see_a_secret` found a bug in the guard itself:
+  **`\b` does not match inside `POSTGRES_PASSWORD`**, because `_` is a word
+  character, so the assignment pattern matched nothing. ADR 0022.
+- Twenty-two ADRs, in `docs/adr/`. 289 tests — 238 unit, 51 integration.
 
-**Next: Phase 6 — 6.1 integration tests, 6.2 coverage, 6.3 secrets — or 7.3, the
-README.** Phase 5 is as done as it can be until 4.3 unblocks. 6.2 and 6.3 both
-touch CI or configuration, so both need asking first.
+**Next: 7.2, the public deployment — and it is the gate.** `docs/BUILD-PLAN.md`'s
+graph has `U52 --> U72` and `U63 --> U72`; both are now done, so nothing blocks it.
+`CLAUDE.md` ranks the gate above everything else: green CI is done, the public URL
+is the only half still open. Everything left in Phase 6 (coverage, more integration
+tests) is polish beside it. **7.2 needs decisions only Carlos can make** — which
+platform, and an account on it — plus real credentials, which is the first time this
+repository has had a secret to protect and therefore the moment ADR 0022 says to
+revisit the secret scanner.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
