@@ -117,14 +117,27 @@ Done so far:
   content* and is a domain rule; `max_body_bytes` is 7 MiB *on the wire* and is a
   transport rule, larger because base64 expands by a third. Both answer `413`;
   the `code` field is what tells `document_too_large` from `request_too_large`.
-- Eighteen ADRs, in `docs/adr/`. 282 tests — 231 unit, 51 integration.
+- **5.1, the container image.** A two-stage `Dockerfile` on `python:3.14-slim`,
+  `uv` only in the build stage and pinned to the version CI pins, non-root user,
+  one uvicorn worker, and **no migrations at container start** — replicas would
+  race and a failed migration would be a crashloop instead of a visibly failed
+  deploy. ADR 0019. **The image is unbuilt: this environment has a Docker client
+  with no daemon, so `ROADMAP.md` 5.1's "done when: image builds" is NOT met.**
+  Building it in CI is the obvious next step and is a CI change, so it needs
+  asking first.
+- **uvicorn's logs were breaking ADR 0016 before the Dockerfile existed.** It
+  configures `uvicorn` and `uvicorn.access` with `propagate: False` and writes
+  plain text to **stderr**, so "one JSON object per line on stdout" was false in
+  a container — and since nothing else in the service logs yet, the *only* lines
+  a deployment emitted were the wrong-format ones. `observability.configure` now
+  reclaims those loggers, and the formatter drops uvicorn's `color_message`,
+  which duplicates the message with ANSI escapes inside. Verified by running the
+  server: nine lines, all JSON on stdout, stderr empty.
+- Nineteen ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
 
-**Next: 5.1, the Dockerfile.** `uvicorn` is approved as the dependency — **plain,
-not `uvicorn[standard]`**, because the extras bring `uvloop` (which barely touches
-a threadpool-based service), `watchfiles` (development only), `websockets`
-(unused) and `python-dotenv` (a *second* configuration mechanism beside
-`pydantic-settings`). **A Dockerfile is deployment configuration, so its shape
-needs explicit approval before anything is written.**
+**Next: either build the image in CI (a CI change — ask first) or 5.2, the
+compose file.** 5.1's artefact exists but its completion criterion does not hold
+until something builds it.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016

@@ -16,12 +16,20 @@ license = { file = "LICENSE" }
 # is declared explicitly although `fastapi` already pulls it in, because `api/`
 # imports it directly — unlike SQLAlchemy, which ADR 0010 leaves transitive
 # precisely because nothing here imports it. Declare what you import.
+# ADR 0019: `uvicorn`, and deliberately NOT `uvicorn[standard]`. The extras are
+# `uvloop` (which barely touches a service whose endpoints run in a threadpool,
+# per ADR 0007), `httptools`, `watchfiles` (development reload only),
+# `websockets` (unused) and `python-dotenv` — which would be a *second*
+# configuration mechanism beside `pydantic-settings`, the duplication ADR 0017
+# spent a decision avoiding. Nothing here imports it; it is the process that
+# runs the app.
 dependencies = [
     "alembic>=1.19.2",
     "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.5",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "uvicorn>=0.38.0",
 ]
 
 [build-system]

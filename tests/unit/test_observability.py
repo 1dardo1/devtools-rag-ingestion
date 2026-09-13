@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 
+from rag_ingestion import observability
 from rag_ingestion.observability import configure
 
 
@@ -38,6 +39,27 @@ def _leave_the_root_logger_as_it_was() -> Iterator[None]:
     for handler in handlers:
         root.addHandler(handler)
     root.setLevel(level)
+
+
+@pytest.fixture(autouse=True)
+def _leave_the_server_loggers_as_they_were() -> Iterator[None]:
+    """The same courtesy as the fixture above, for the loggers `configure` reclaims.
+
+    A separate fixture rather than an addition to
+    `_leave_the_root_logger_as_it_was`, because that one is about a specific
+    defect and its docstring explains that defect; widening it would blur both.
+    Both are autouse, so order between them does not matter — neither touches the
+    other's loggers.
+    """
+    snapshot = {
+        name: (logging.getLogger(name).handlers[:], logging.getLogger(name).propagate)
+        for name in observability._SERVER_LOGGERS
+    }
+    yield
+    for name, (handlers, propagate) in snapshot.items():
+        logger = logging.getLogger(name)
+        logger.handlers[:] = handlers
+        logger.propagate = propagate
 
 
 @pytest.fixture
@@ -167,3 +189,106 @@ def test_the_level_can_be_lowered(stream: io.StringIO) -> None:
     logging.getLogger("rag_ingestion.test").debug("now audible")
 
     assert _lines(stream)[0]["level"] == "DEBUG"
+
+
+class TestTheServerLoggersAreReclaimed:
+    """`uvicorn` configures its own loggers; `configure` takes them back.
+
+    Without this, a container's output is this module's JSON on stdout
+    interleaved with uvicorn's plain text on stderr — two formats and two
+    streams, which is exactly the pair ADR 0016 chose one of each to avoid. And
+    since nothing in the service logs anything yet, the only lines a deployment
+    emitted would be the ones in the wrong format. ADR 0019.
+    """
+
+    def test_a_server_logger_reaches_the_json_formatter(
+        self, stream: io.StringIO
+    ) -> None:
+        # Exactly what uvicorn does: its own handler, writing elsewhere, and no
+        # propagation to the root logger.
+        elsewhere = io.StringIO()
+        uvicorn_logger = logging.getLogger("uvicorn.error")
+        uvicorn_logger.addHandler(logging.StreamHandler(elsewhere))
+        uvicorn_logger.propagate = False
+
+        configure(stream=stream)
+        uvicorn_logger.warning("Invalid HTTP request received.")
+
+        assert elsewhere.getvalue() == "", (
+            "uvicorn kept its own handler, so its lines bypass the formatter"
+        )
+        line = _lines(stream)[0]
+        assert line["logger"] == "uvicorn.error"
+        assert line["message"] == "Invalid HTTP request received."
+
+    def test_every_server_logger_is_reclaimed(self, stream: io.StringIO) -> None:
+        for name in observability._SERVER_LOGGERS:
+            logger = logging.getLogger(name)
+            logger.addHandler(logging.StreamHandler(io.StringIO()))
+            logger.propagate = False
+
+        configure(stream=stream)
+
+        for name in observability._SERVER_LOGGERS:
+            logger = logging.getLogger(name)
+            assert logger.handlers == [], f"{name} kept a handler of its own"
+            assert logger.propagate, f"{name} still does not propagate"
+
+    def test_the_assumption_this_rests_on_still_holds(self) -> None:
+        """That uvicorn still silences the loggers `_SERVER_LOGGERS` names.
+
+        Reclaiming them from `configure` works because uvicorn configures logging
+        *before* it calls the application factory — its behaviour today rather
+        than a promise it makes. This asserts the shape that depends on, so a
+        release that renames a logger or adds one makes this fail instead of
+        letting `_SERVER_LOGGERS` quietly go out of date.
+
+        Note what the real configuration looks like, because it is not uniform:
+        `uvicorn` and `uvicorn.access` each take a handler and set
+        `propagate: False`, while `uvicorn.error` sets only a level and therefore
+        propagates to `uvicorn`, which holds the handler. Reclaiming it is
+        harmless and kept for the case where that changes.
+        """
+        from uvicorn.config import LOGGING_CONFIG
+
+        configured = LOGGING_CONFIG["loggers"]
+
+        unknown = set(configured) - set(observability._SERVER_LOGGERS)
+        assert not unknown, (
+            "uvicorn configures a logger this module does not reclaim:"
+            f" {sorted(unknown)}"
+        )
+
+        silenced = {
+            name
+            for name, settings in configured.items()
+            if settings.get("propagate") is False
+        }
+        assert silenced, (
+            "uvicorn no longer takes any logger off propagation, so reclaiming"
+            " them may now be unnecessary — check before deleting it"
+        )
+        assert silenced <= set(observability._SERVER_LOGGERS)
+
+    def test_the_servers_duplicate_coloured_message_is_dropped(
+        self, stream: io.StringIO
+    ) -> None:
+        """`uvicorn` sends the same message twice, once with ANSI escapes in it.
+
+        It arrives in `extra`, so without an exclusion every startup line would
+        carry a `context.color_message` holding `message` again wrapped in escape
+        sequences — noise in a log meant to be machine-read.
+        """
+        configure(stream=stream)
+
+        logging.getLogger("uvicorn.error").info(
+            "Started server process [%d]",
+            1,
+            extra={"color_message": "Started server process [\x1b[36m%d\x1b[0m]"},
+        )
+
+        line = _lines(stream)[0]
+        assert line["message"] == "Started server process [1]"
+        assert "context" not in line, (
+            f"the coloured duplicate leaked into the log: {line.get('context')}"
+        )
