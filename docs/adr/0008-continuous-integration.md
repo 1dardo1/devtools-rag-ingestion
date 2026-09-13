@@ -1,7 +1,7 @@
 # 8. Run every local check again on a clean machine, on every proposed change
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-05
+- **Last revised:** 2026-09-13
 
 ## Context
 
@@ -53,6 +53,15 @@ made before the breakage.
   0.16 seconds is several minutes of setup to parallelise a few seconds of work.
   The named-step approach below produces the same per-check granularity in the
   log at a quarter of the cost.
+
+  > **There is now a second job, and it is this reasoning that permits it rather
+  > than an exception to it.** ADR 0020 adds `image`, which builds the container
+  > and starts it. The objection above is to jobs paying *the same setup* twice;
+  > that job shares none of it — no `uv`, no Python, no dependency sync — so
+  > folding it into `checks` would only make the fast feedback wait for the slow
+  > thing, which is the cost this paragraph is about, reached from the other
+  > side. The rule that keeps this from drifting back to four jobs: a new job
+  > that *would* repeat the `uv` setup belongs in `checks`.
 
 - **One job, one script** (`make ci` or a shell script running all four).
   Simplest to keep in step with what a contributor runs locally. Rejected

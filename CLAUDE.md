@@ -123,8 +123,13 @@ Done so far:
   race and a failed migration would be a crashloop instead of a visibly failed
   deploy. ADR 0019. **The image is unbuilt: this environment has a Docker client
   with no daemon, so `ROADMAP.md` 5.1's "done when: image builds" is NOT met.**
-  Building it in CI is the obvious next step and is a CI change, so it needs
-  asking first.
+  **Closed by ADR 0020:** a second CI job, `image`, builds it *and starts it* —
+  `docker run` with `DATABASE_URL` pointing at nothing, then polls
+  `/openapi.json`, because ADR 0017 opens no connection until a request arrives.
+  Building alone would have satisfied the roadmap's wording while leaving the
+  likely defects — `PATH`, `CMD`, the non-root user's access to the venv —
+  undetected. **The new job is not a required check**; that is the `main`
+  ruleset, which lives in the GitHub interface.
 - **uvicorn's logs were breaking ADR 0016 before the Dockerfile existed.** It
   configures `uvicorn` and `uvicorn.access` with `propagate: False` and writes
   plain text to **stderr**, so "one JSON object per line on stdout" was false in
@@ -133,17 +138,32 @@ Done so far:
   reclaims those loggers, and the formatter drops uvicorn's `color_message`,
   which duplicates the message with ANSI escapes inside. Verified by running the
   server: nine lines, all JSON on stdout, stderr empty.
-- Nineteen ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
+- **5.1 is closed, and CI closed it by failing first.** ADR 0020 added an `image`
+  job that builds the container and starts it. Its first run was red:
+  `OSError: License file does not exist: LICENSE`, because `pyproject.toml` has
+  `license = { file = "LICENSE" }` and **hatchling validates that the file
+  exists**, while the `Dockerfile` copied `README.md` and not `LICENSE`. ADR 0019
+  had reasoned its way to the readme and missed the licence — the same reason
+  stated twice in one manifest. **The rule, not the filename: every path
+  `pyproject.toml` points at has to be in the image**, because the build backend
+  reads the manifest, not the `Dockerfile`.
+- Twenty ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
 
-**Next: either build the image in CI (a CI change — ask first) or 5.2, the
-compose file.** 5.1's artefact exists but its completion criterion does not hold
-until something builds it.
+**Next: 5.2, the compose file** — one command that starts the service, the relay,
+PostgreSQL and Redis on a machine that has none of them. Note the relay does not
+exist yet (4.3 is blocked), so 5.2 has to decide what it does about that.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
 split out "making the relay's silence legible" as a decision also due before it.
 **Phase 5 (containers) is not blocked** and is the nearer half of the gate: the
 public URL is the only part still open.
+
+**`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
+are independent checks and one run should report every failure. In `image` they are
+a sequence, and copying the condition there made a failed build run `docker run`
+against a nonexistent image and then poll for thirty seconds, burying the real
+error. ADR 0020.
 
 **Four guards now hold rules that used to rely on review.** Two in
 `tests/unit/api/test_routes.py`: `test_every_endpoint_is_synchronous` fails if
