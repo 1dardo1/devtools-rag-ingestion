@@ -123,8 +123,13 @@ Done so far:
   race and a failed migration would be a crashloop instead of a visibly failed
   deploy. ADR 0019. **The image is unbuilt: this environment has a Docker client
   with no daemon, so `ROADMAP.md` 5.1's "done when: image builds" is NOT met.**
-  Building it in CI is the obvious next step and is a CI change, so it needs
-  asking first.
+  **Closed by ADR 0020:** a second CI job, `image`, builds it *and starts it* —
+  `docker run` with `DATABASE_URL` pointing at nothing, then polls
+  `/openapi.json`, because ADR 0017 opens no connection until a request arrives.
+  Building alone would have satisfied the roadmap's wording while leaving the
+  likely defects — `PATH`, `CMD`, the non-root user's access to the venv —
+  undetected. **The new job is not a required check**; that is the `main`
+  ruleset, which lives in the GitHub interface.
 - **uvicorn's logs were breaking ADR 0016 before the Dockerfile existed.** It
   configures `uvicorn` and `uvicorn.access` with `propagate: False` and writes
   plain text to **stderr**, so "one JSON object per line on stdout" was false in
@@ -133,11 +138,11 @@ Done so far:
   reclaims those loggers, and the formatter drops uvicorn's `color_message`,
   which duplicates the message with ANSI escapes inside. Verified by running the
   server: nine lines, all JSON on stdout, stderr empty.
-- Nineteen ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
+- Twenty ADRs, in `docs/adr/`. 286 tests — 235 unit, 51 integration.
 
-**Next: either build the image in CI (a CI change — ask first) or 5.2, the
-compose file.** 5.1's artefact exists but its completion criterion does not hold
-until something builds it.
+**Next: 5.2, the compose file** — one command that starts the service, the relay,
+PostgreSQL and Redis on a machine that has none of them. Note the relay does not
+exist yet (4.3 is blocked), so 5.2 has to decide what it does about that.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016

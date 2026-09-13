@@ -5,8 +5,11 @@
 # never seen the author's laptop: no stale `.mypy_cache`, no editable install
 # left over from an experiment, no tool version that happens to be on PATH.
 #
-# See ADR 0008 for why this is one job rather than four, and why every action
-# is pinned to a commit rather than a tag.
+# See ADR 0008 for why the checks are one job rather than four, and why every
+# action is pinned to a commit rather than a tag. The image is a second job, and
+# ADR 0020 says why that is not a contradiction: ADR 0008 objected to jobs each
+# paying the same setup cost for one fast command, and this one shares no setup
+# with the checks at all.
 name: CI
 
 on:
@@ -67,3 +70,72 @@ jobs:
       - name: Tests (pytest)
         if: ${{ !cancelled() }}
         run: uv run pytest
+
+  # A second job rather than more steps in the first, which is a departure from
+  # ADR 0008's "one job rather than four" and deliberate: that reasoning was that
+  # four jobs each paying the same setup cost to run one fast command is waste.
+  # This job shares none of that setup — no `uv`, no Python, no dependency
+  # install — so merging it into `checks` would only make the fast feedback wait
+  # for the slow thing. ADR 0020.
+  image:
+    name: Image builds and starts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No `docker/build-push-action` and no buildx cache. The runner already
+      # has Docker, so this needs no action at all, and layer caching is an
+      # optimization — `ARCHITECTURE.md` principle 10 says not before
+      # measurement. There is nothing to measure until this has run.
+      - name: Build the image
+        run: docker build --tag devtools-rag-ingestion:ci .
+
+      # `ROADMAP.md` 5.1 says "image builds", and building is the weaker half of
+      # what matters: an image can build perfectly and die on the first
+      # `docker run` because of the `PATH`, the `CMD`, or the non-root user being
+      # unable to read the virtual environment. Those were exactly the claims
+      # ADR 0019 could only reason about, so this starts it.
+      #
+      # `DATABASE_URL` points at nothing on purpose. The composition root opens
+      # no connection until a request arrives (ADR 0017), so the server must come
+      # up and serve its own OpenAPI document without a database anywhere — which
+      # makes this a test of the image rather than of Postgres.
+      - name: Start the container
+        if: ${{ !cancelled() }}
+        run: |
+          docker run --detach --name ingestion \
+            --env DATABASE_URL=postgresql://nobody@127.0.0.1:1/nothing \
+            --publish 8000:8000 \
+            devtools-rag-ingestion:ci
+
+      - name: Wait for it to answer
+        if: ${{ !cancelled() }}
+        run: |
+          # Poll rather than sleep a fixed time: a fixed wait is either flaky or
+          # slower than it needs to be, and usually both.
+          for _ in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8000/openapi.json > /dev/null; then
+              echo "the container served its OpenAPI document"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the container never answered; its logs follow" >&2
+          docker logs ingestion >&2
+          exit 1
+
+      # Unconditionally, so a failure above still shows what the container said.
+      # This is also the first time anybody sees the image's log output, which
+      # ADR 0019 claims is JSON on stdout.
+      - name: Show the container's logs
+        if: ${{ always() }}
+        # Tolerant of there being no container: if the build failed there is
+        # nothing to show, and this step must not be what turns the job red.
+        run: docker logs ingestion || echo "no container to show logs for"
+
+      - name: Stop the container
+        if: ${{ always() }}
+        run: docker rm --force ingestion || true
