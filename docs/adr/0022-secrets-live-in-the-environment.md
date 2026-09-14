@@ -90,8 +90,10 @@ and `!.env.example`, so it is tracked and the real file is not.
 
 Three tests in `tests/unit/test_no_secret_is_committed.py`:
 
-1. **`test_no_secret_is_committed`** scans every tracked text file for the six
-   shapes and reports file and line for each hit.
+1. **`test_no_secret_is_committed`** scans every text file that would be in the
+   repository if the working tree were committed — `--cached --others
+   --exclude-standard`, as above, and not the tracked set — for the six shapes,
+   and reports file and line for each hit.
 2. **`test_the_guard_can_actually_see_a_secret`** runs every pattern against a
    string it must match, and fails if a pattern is added without a sample.
 3. **`test_the_example_file_names_every_setting`** compares `.env.example` against
