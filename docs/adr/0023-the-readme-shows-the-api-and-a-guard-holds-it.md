@@ -1,7 +1,7 @@
 # 23. The README shows the API, and a guard holds it
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-13
+- **Last revised:** 2026-09-14
 
 ## Context
 
@@ -120,6 +120,21 @@ produce reference material rather than an explanation, and the explanation is wh
 tests"; it is 245 now. Rather than add a guard for a number nobody reads twice, the
 sentence no longer states one. Not every fact is worth a test, and saying which is
 which is part of the decision.
+
+**And the rule was applied to one count and not the other, in this same commit.**
+The rewrite removed the test count and then wrote "**Twenty-two decisions are
+recorded in `docs/adr/`**" — while adding this ADR, the twenty-third. It was false
+the moment it was written, by the commit that wrote it. The sentence now names no
+number.
+
+That is worth more than the one-word fix. The reasoning above ("a count in prose
+is a count that rots") was correct and was recorded, and the *same document* then
+broke it a hundred lines further down, because the second count was in a section
+nobody was thinking about while editing the first. A rule that has to be
+remembered at every site is not yet a rule — it is an intention. The guard in this
+ADR checks names and not numbers on purpose, so nothing caught it; it was found by
+reading the repository against itself. **What the guard's reach does not cover is
+covered by nothing.**
 
 **`docs/` keeps its job.** The README links to `ARCHITECTURE.md`, `ROADMAP.md`,
 `BUILD-PLAN.md` and the ADRs rather than absorbing them. The line drawn is: the
