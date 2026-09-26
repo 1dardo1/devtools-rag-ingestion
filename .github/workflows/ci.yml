@@ -67,9 +67,24 @@ jobs:
         if: ${{ !cancelled() }}
         run: uv run mypy
 
-      - name: Tests (pytest)
+      # Under `coverage` rather than beside it: the suite runs once, and the
+      # number describes exactly the run whose result is shown above it.
+      # Integration tests included — the runner has Docker, and without them
+      # the PostgreSQL adapters would read as untested. ADR 0024.
+      - name: Tests (pytest, measured by coverage)
         if: ${{ !cancelled() }}
-        run: uv run pytest
+        run: uv run coverage run -m pytest
+
+      # Two reports, in that order. The first goes to the run's summary page
+      # and is told not to enforce, so the table appears even when the number
+      # is too low — which is when somebody most needs to see it. The second
+      # prints the same table to the log and fails the job below the floor in
+      # `pyproject.toml`.
+      - name: Coverage (report and enforce the floor)
+        if: ${{ !cancelled() }}
+        run: |
+          uv run coverage report --format=markdown --fail-under=0 >> "$GITHUB_STEP_SUMMARY"
+          uv run coverage report
 
   # A second job rather than more steps in the first, which is a departure from
   # ADR 0008's "one job rather than four" and deliberate: that reasoning was that
