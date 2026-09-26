@@ -47,7 +47,10 @@ packages = ["src/rag_ingestion"]
 # `httpx2`, not `httpx`. Starlette 1.6 deprecated `httpx` for its `TestClient`
 # and asks for `httpx2` by name; the warning was reproduced before choosing.
 # See ADR 0015.
+# `coverage`, not `pytest-cov`: the plugin is a wrapper around this package and
+# `coverage run -m pytest` needs no wrapper. ADR 0024.
 dev = [
+    "coverage>=7.16.1",
     "httpx2>=2.12.0",
     "mypy>=2.3.1",
     "pytest>=8.4.2",
@@ -134,3 +137,19 @@ addopts = "--strict-markers"
 markers = [
     "integration: starts a real container; needs a Docker daemon",
 ]
+
+# ADR 0024. Measured over the whole suite in CI, integration tests included,
+# because the unit suite alone never reaches the PostgreSQL adapters.
+[tool.coverage.run]
+source = ["rag_ingestion"]
+# Lines alone call an `if` covered when only one of its outcomes ever ran.
+branch = true
+
+[tool.coverage.report]
+# The floor is what the whole suite reached in CI on the day it was set
+# (98.63%), not a figure from a style guide. It only moves up: lowering it is a
+# decision, made in a pull request that says why. Without Docker the integration
+# tests do not run and a local report falls below it; ADR 0024.
+fail_under = 98
+show_missing = true
+skip_covered = true

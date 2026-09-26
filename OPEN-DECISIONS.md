@@ -265,11 +265,10 @@ real credential worth protecting.
 
 ### 5.2 Coverage measurement (roadmap 6.2)
 
-Not done. Nothing measures how much of the code the tests actually exercise.
-
-With 296 tests and mutation-testing done by hand on every guard, the marginal value
-is lower here than in most projects — but it is genuinely missing, it touches CI,
-and it is the last unfinished item in Phase 6.
+**Done.** CI runs every test under `coverage`, shows the table on each run's
+summary page, and fails if coverage drops below 98% — the whole suite measured
+98.63% when the floor was set. Without Docker the integration tests do not run and
+a local report falls below the floor, which is expected. See ADR 0024.
 
 ### 5.3 A database connection pool
 
@@ -315,8 +314,6 @@ Not a plan you have to follow — a reading of which moves buy the most.
 3. **Decide the relay's silence** (item 3) while the contracts repository is
    blocked, so that work is ready when it unblocks.
 4. Then the small confirmations: 4.2, 4.3, 4.4, 4.5, in any order.
-5. **Coverage** (5.2) last, or never, depending on what you want the repository to
-   demonstrate.
 
 ---
 
@@ -336,4 +333,4 @@ Terms used above that are worth having straight:
   somebody remembering it. This repository has six.
 - **ADR** — Architecture Decision Record: one document per non-obvious decision,
   naming the alternatives that were rejected and what the choice costs. There are
-  twenty-three in [`docs/adr/`](docs/adr/).
+  twenty-four in [`docs/adr/`](docs/adr/).

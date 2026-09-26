@@ -182,7 +182,23 @@ Done so far:
   (the relay and the Redis publisher), "the five commands CI runs" when CI has
   three jobs, and a link to the contracts repo that only resolved with both clones
   side by side. ADR 0023.
-- Twenty-three ADRs, in `docs/adr/`. 296 tests — 245 unit, 51 integration.
+- **6.2, coverage.** `coverage.py` directly, not `pytest-cov` — the plugin is a
+  wrapper and a second dependency. CI's test step *is* `coverage run -m pytest`,
+  so the whole suite is measured once, integration tests included; the table goes
+  to the run's summary page, then `coverage report` enforces `fail_under = 98`,
+  with branch coverage on. **98 is what CI measured for the whole suite (98.63%);
+  not 99**, because the report rounds up and `fail_under` compares the exact
+  value. **Without Docker a local report fails the floor** — the unit suite alone
+  is ~93% — so pass `--fail-under=0` there; only CI's number is binding. No
+  Codecov: it needs a token, and the first secret belongs to 7.2. ADR 0024.
+- **This container's Python is 3.14.0rc2, and Pydantic cannot import on it** —
+  five test modules fail at collection with `_eval_type() got an unexpected keyword
+  argument 'prefer_fwd_module'`. CI is unaffected. Locally, `uvx uv@0.12.10 python
+  install 3.14` fetches a final release that the container's older `uv` does not
+  know about. **Relock with the container's `uv`, not 0.12.10**: the newer one also
+  prunes `greenlet` wheels SQLAlchemy never requests on s390x and riscv64, which is
+  an unrelated diff in any pull request that touches the lockfile.
+- Twenty-four ADRs, in `docs/adr/`. 296 tests — 245 unit, 51 integration.
 
 **Next: 7.2, the public deployment — and it is the gate. It is waiting on Carlos**,
 who asked for options without payment barriers; the free tiers could not be verified
@@ -193,8 +209,8 @@ in the meantime.
 **On 7.2 when it resumes:** `docs/BUILD-PLAN.md`'s
 graph has `U52 --> U72` and `U63 --> U72`; both are now done, so nothing blocks it.
 `CLAUDE.md` ranks the gate above everything else: green CI is done, the public URL
-is the only half still open. Everything left in Phase 6 (coverage, more integration
-tests) is polish beside it. **7.2 needs decisions only Carlos can make** — which
+is the only half still open. Everything left in Phase 6 (more integration tests) is
+polish beside it. **7.2 needs decisions only Carlos can make** — which
 platform, and an account on it — plus real credentials, which is the first time this
 repository has had a secret to protect and therefore the moment ADR 0022 says to
 revisit the secret scanner.

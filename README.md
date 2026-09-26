@@ -142,7 +142,19 @@ uv run mypy                    # strict types, over src and tests
 uv run pytest                  # tests
 ```
 
-Those four checks are the `Lint, types, tests` job in CI, in that order. Two more
+Those four checks are the `Lint, types, tests` job in CI, in that order, except
+that CI runs the tests under `coverage` and fails below a floor. To see the same
+table locally:
+
+```bash
+uv run coverage run -m pytest && uv run coverage report
+```
+
+The floor is set for the whole suite, so without a Docker daemon the integration
+tests do not run and the report fails it; add `--fail-under=0` to see the table
+anyway.
+
+[ADR 0024](docs/adr/0024-coverage-is-measured-and-has-a-floor.md). Two more
 jobs run beside it: one builds the image and starts the container, and one brings
 the compose stack up and posts a document through it. See
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
