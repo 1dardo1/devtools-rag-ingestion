@@ -189,8 +189,8 @@ makes `async def` the reflex.
 The distribution is `devtools-rag-ingestion`; the import root is `rag_ingestion`.
 [ADR 0003](docs/adr/0003-src-layout-and-import-root.md).
 
-**Twenty-two decisions are recorded in [`docs/adr/`](docs/adr/)**, each with the
-alternatives it rejected and what it costs. They are the most useful thing in this
+**Every non-obvious decision is recorded in [`docs/adr/`](docs/adr/)**, each with
+the alternatives it rejected and what it costs. They are the most useful thing in this
 repository. If you only read two, read
 [ADR 0012](docs/adr/0012-the-initial-database-schema.md) — what the schema
 deliberately does not enforce — and
