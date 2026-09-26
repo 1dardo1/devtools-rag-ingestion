@@ -185,11 +185,12 @@ Done so far:
 - **6.2, coverage.** `coverage.py` directly, not `pytest-cov` — the plugin is a
   wrapper and a second dependency. CI's test step *is* `coverage run -m pytest`,
   so the whole suite is measured once, integration tests included; the table goes
-  to the run's summary page, then `coverage report` enforces `fail_under = 93`,
-  with branch coverage on. **93 is the unit suite's number (93.31%), set before CI
-  had measured the whole suite**, so the floor has slack until someone raises it to
-  what CI reports. No Codecov: it needs a token, and the first secret belongs to
-  7.2. ADR 0024.
+  to the run's summary page, then `coverage report` enforces `fail_under = 98`,
+  with branch coverage on. **98 is what CI measured for the whole suite (98.63%);
+  not 99**, because the report rounds up and `fail_under` compares the exact
+  value. **Without Docker a local report fails the floor** — the unit suite alone
+  is ~93% — so pass `--fail-under=0` there; only CI's number is binding. No
+  Codecov: it needs a token, and the first secret belongs to 7.2. ADR 0024.
 - **This container's Python is 3.14.0rc2, and Pydantic cannot import on it** —
   five test modules fail at collection with `_eval_type() got an unexpected keyword
   argument 'prefer_fwd_module'`. CI is unaffected. Locally, `uvx uv@0.12.10 python

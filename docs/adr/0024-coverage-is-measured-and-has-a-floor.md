@@ -16,6 +16,10 @@ almost entirely the PostgreSQL adapters and parts of `main.py` — the code the 
 integration tests exist to exercise, and which they cannot exercise without a
 Docker daemon.
 
+CI then measured the whole suite, all 296 tests: **98.63%** — 6 statements and 4
+branch arcs unexecuted out of 668 and 64. That is the number the floor is set
+from.
+
 ## Options considered
 
 ### The tool
@@ -40,25 +44,25 @@ Docker daemon.
 
 ### Whether the number is enforced
 
-- **A floor, `fail_under = 93`, in `pyproject.toml`.** Chosen, because "cannot
+- **A floor, `fail_under = 98`, in `pyproject.toml`.** Chosen, because "cannot
   quietly drift" is a rule and a rule nobody enforces is a wish.
 - **Report only.** Rejected: it is the drift the build plan names.
 - **100%.** Rejected. The last few percent are reached by tests that pin how the
   code is written rather than what it does, which `COLLABORATION.md` §7 prohibits.
-- **80%, the customary figure.** Rejected: thirteen points below the measured
-  number, so it would let a large drop pass without a word.
-
-**The floor comes from the unit suite, while CI measures the whole suite.** That
-is deliberate. The unit number is the one that could be measured here, and the
-whole suite is a superset of it, so the first CI run cannot fail on a floor set
-above what it will reach. It also means the floor starts with slack — see the
-consequences.
+- **80%, the customary figure.** Rejected: nearly nineteen points below the
+  measured number, so it would let a large drop pass without a word.
+- **99, what the report displays.** Rejected: the report rounds 98.63 up, and
+  `fail_under` compares the unrounded value, so the floor would fail the very
+  code it was measured on.
+- **93, the unit suite's number.** Rejected. It is the number a machine without
+  Docker can reach, which makes local runs pass, but it leaves almost six points
+  of drop in the whole suite that nothing would notice.
 
 ### Lines or branches
 
 **Branches too (`branch = true`).** Line coverage calls an `if` covered when only
-one of its outcomes ever ran. Branch coverage is stricter, and the 93.31% above is
-already the stricter number.
+one of its outcomes ever ran. Branch coverage is stricter, and both numbers above
+are already the stricter kind.
 
 ### Where it runs
 
@@ -70,7 +74,7 @@ whose result is shown.
 ## Decision
 
 `coverage` joins the `dev` group. `[tool.coverage.run]` measures `rag_ingestion`
-with branch coverage; `[tool.coverage.report]` sets `fail_under = 93`. In CI the
+with branch coverage; `[tool.coverage.report]` sets `fail_under = 98`. In CI the
 test step becomes `coverage run -m pytest`, followed by a step that writes the
 report as Markdown to the run summary without enforcing, then prints it to the log
 and enforces. That order puts the table on the page even on the run where the
@@ -78,14 +82,17 @@ floor fails.
 
 Locally, `uv run pytest` is unchanged. `uv run coverage run -m pytest` followed by
 `uv run coverage report` reproduces CI; on a machine without Docker, add
-`-m "not integration"` and expect the adapters to show as uncovered.
+`-m "not integration"` to the first and `--fail-under=0` to the second, and
+expect the adapters to show as uncovered.
 
 ## Consequences
 
-- **The floor is slack on day one.** The integration tests will lift the CI number
-  above 93, so the first few points of any later drop go unnoticed until the floor
-  is raised to the number CI actually reports. Raising it is a separate, small
-  change, and it has to be made by hand — nothing ratchets it automatically.
+- **The floor needs Docker to be met.** The unit suite alone reaches about 93%, so
+  a local `coverage report` without a daemon fails even when nothing is wrong. The
+  alternative — a lower floor that both runs could meet — gives up the only run
+  that measures everything. Only CI's number is binding.
+- **Raising the floor is manual.** Nothing ratchets it automatically. When the
+  number climbs, the floor stays where it is until a pull request moves it.
 - **Code that is genuinely hard to test now costs something.** The relay (4.3) is
   the obvious candidate. It will need its tests in the same pull request, or a
   pull request that lowers the floor and says why. That friction is the point, but

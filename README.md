@@ -150,6 +150,10 @@ table locally:
 uv run coverage run -m pytest && uv run coverage report
 ```
 
+The floor is set for the whole suite, so without a Docker daemon the integration
+tests do not run and the report fails it; add `--fail-under=0` to see the table
+anyway.
+
 [ADR 0024](docs/adr/0024-coverage-is-measured-and-has-a-floor.md). Two more
 jobs run beside it: one builds the image and starts the container, and one brings
 the compose stack up and posts a document through it. See
