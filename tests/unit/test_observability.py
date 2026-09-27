@@ -153,6 +153,19 @@ def test_an_exception_is_logged_with_its_traceback(stream: io.StringIO) -> None:
     assert "Traceback" in line["exception"]
 
 
+def test_a_requested_stack_is_logged_under_its_own_key(stream: io.StringIO) -> None:
+    logging.getLogger("rag_ingestion.test").warning(
+        "how did we get here", stack_info=True
+    )
+
+    # A stack is many lines of text; it must still arrive as one JSON line.
+    assert len(stream.getvalue().splitlines()) == 1
+    line = _lines(stream)[0]
+    assert "Stack (most recent call last)" in line["stack"]
+    assert "test_a_requested_stack_is_logged_under_its_own_key" in line["stack"]
+    assert "exception" not in line
+
+
 def test_a_newline_in_a_message_does_not_break_the_line_per_record_contract(
     stream: io.StringIO,
 ) -> None:

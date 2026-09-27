@@ -353,14 +353,35 @@ class TestTheLayerItself:
             endpoint for endpoint in endpoints if inspect.iscoroutinefunction(endpoint)
         ]
 
-    def test_the_application_ships_unwired(self) -> None:
+    @pytest.mark.parametrize(
+        ("method", "path", "body", "use_case"),
+        [
+            ("POST", "/collections", {"name": "nowhere"}, "CreateCollection"),
+            (
+                "POST",
+                f"/collections/{uuid4()}/documents",
+                {
+                    "content": base64.b64encode(b"unwired").decode("ascii"),
+                    "metadata": {"source_library": "fastapi", "doc_type": "tutorial"},
+                },
+                "IngestDocument",
+            ),
+            ("GET", f"/documents/{uuid4()}", None, "GetIngestionStatus"),
+        ],
+    )
+    def test_the_application_ships_unwired(
+        self, method: str, path: str, body: object, use_case: str
+    ) -> None:
         """4.4 deliberately satisfies no dependency; 4.5 does that.
 
         Without an override the provider raises, which is how this layer refuses
-        to guess at its own infrastructure.
+        to guess at its own infrastructure. Every endpoint, not one of them: a
+        provider that started satisfying itself would otherwise go unnoticed on
+        the two routes nobody checked. The use case's name in the match is what
+        proves each route reached its *own* provider.
         """
         with (
             TestClient(create_app()) as unwired,
-            pytest.raises(NotImplementedError, match="composition root"),
+            pytest.raises(NotImplementedError, match=f"No {use_case} was provided"),
         ):
-            unwired.post("/collections", json={"name": "nowhere"})
+            unwired.request(method, path, json=body)

@@ -185,10 +185,12 @@ Done so far:
 - **6.2, coverage.** `coverage.py` directly, not `pytest-cov` — the plugin is a
   wrapper and a second dependency. CI's test step *is* `coverage run -m pytest`,
   so the whole suite is measured once, integration tests included; the table goes
-  to the run's summary page, then `coverage report` enforces `fail_under = 98`,
-  with branch coverage on. **98 is what CI measured for the whole suite (98.63%);
-  not 99**, because the report rounds up and `fail_under` compares the exact
-  value. **Without Docker a local report fails the floor** — the unit suite alone
+  to the run's summary page, then `coverage report` enforces `fail_under = 99`,
+  with branch coverage on. **99 is what CI measured for the whole suite (99.86%),
+  rounded down** — always down, because the report rounds and `fail_under`
+  compares the exact value. **One branch stays uncovered on purpose**: the
+  `isinstance` in `error_handling._handle_domain_error` cannot be false, and
+  neither a test of the private handler nor a `pragma` is the answer. **Without Docker a local report fails the floor** — the unit suite alone
   is ~93% — so pass `--fail-under=0` there; only CI's number is binding. No
   Codecov: it needs a token, and the first secret belongs to 7.2. ADR 0024.
 - **This container's Python is 3.14.0rc2, and Pydantic cannot import on it** —
@@ -198,7 +200,7 @@ Done so far:
   know about. **Relock with the container's `uv`, not 0.12.10**: the newer one also
   prunes `greenlet` wheels SQLAlchemy never requests on s390x and riscv64, which is
   an unrelated diff in any pull request that touches the lockfile.
-- Twenty-four ADRs, in `docs/adr/`. 296 tests — 245 unit, 51 integration.
+- Twenty-four ADRs, in `docs/adr/`. 302 tests — 249 unit, 53 integration.
 
 **Next: 7.2, the public deployment — and it is the gate. It is waiting on Carlos**,
 who asked for options without payment barriers; the free tiers could not be verified
