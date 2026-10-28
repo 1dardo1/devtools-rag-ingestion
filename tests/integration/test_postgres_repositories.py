@@ -14,6 +14,7 @@ from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.document_status import DocumentStatus
 from rag_ingestion.domain.metadata import Metadata
+from rag_ingestion.infrastructure.postgres._results import exactly_one_row
 from rag_ingestion.infrastructure.postgres.collection_repository import (
     PostgresCollectionRepository,
 )
@@ -332,3 +333,27 @@ class TestTheTransactionBelongsToTheCaller:
         assert (
             PostgresDocumentRepository(migrated).get(document.document_id) is not None
         )
+
+
+class TestARowTheDatabaseGuaranteesIsNeverInvented:
+    """`count(*)` and `EXISTS` always return one row, so nothing else can reach this.
+
+    Driven directly, against a real cursor, because the repositories cannot be
+    made to see the impossible. The claim is the one `_results` exists for: a
+    missing row raises rather than reading as zero or false, since a
+    deduplication check that silently answered "not present" would store the
+    same document twice.
+    """
+
+    def test_a_query_returning_no_row_raises(self, migrated: Connection) -> None:
+        with migrated.cursor() as cursor:
+            cursor.execute("SELECT 1 WHERE false")
+
+            with pytest.raises(RuntimeError, match="returned none"):
+                exactly_one_row(cursor)
+
+    def test_the_row_a_query_returns_is_passed_back(self, migrated: Connection) -> None:
+        with migrated.cursor() as cursor:
+            cursor.execute("SELECT EXISTS (SELECT 1)")
+
+            assert exactly_one_row(cursor) == (True,)

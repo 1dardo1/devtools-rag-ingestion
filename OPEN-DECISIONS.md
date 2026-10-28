@@ -274,8 +274,8 @@ credential of a shape the guard does not know**, most likely an LLM API key.
 ### 5.2 Coverage measurement (roadmap 6.2)
 
 **Done.** CI runs every test under `coverage`, shows the table on each run's
-summary page, and fails if coverage drops below 98% — the whole suite measured
-98.63% when the floor was set. Without Docker the integration tests do not run and
+summary page, and fails if coverage drops below 99% — the whole suite measured
+99.86% when the floor was set. Without Docker the integration tests do not run and
 a local report falls below the floor, which is expected. See ADR 0024.
 
 ### 5.3 A database connection pool

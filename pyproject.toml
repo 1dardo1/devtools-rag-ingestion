@@ -147,9 +147,9 @@ branch = true
 
 [tool.coverage.report]
 # The floor is what the whole suite reached in CI on the day it was set
-# (98.63%), not a figure from a style guide. It only moves up: lowering it is a
+# (99.86%), rounded down, not a figure from a style guide. It only moves up: lowering it is a
 # decision, made in a pull request that says why. Without Docker the integration
 # tests do not run and a local report falls below it; ADR 0024.
-fail_under = 98
+fail_under = 99
 show_missing = true
 skip_covered = true

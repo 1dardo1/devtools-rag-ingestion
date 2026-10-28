@@ -1,7 +1,7 @@
 # 24. Coverage is measured in CI, and it has a floor
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-26
+- **Last revised:** 2026-09-27
 
 ## Context
 
@@ -16,9 +16,20 @@ almost entirely the PostgreSQL adapters and parts of `main.py` — the code the 
 integration tests exist to exercise, and which they cannot exercise without a
 Docker daemon.
 
-CI then measured the whole suite, all 296 tests: **98.63%** — 6 statements and 4
-branch arcs unexecuted out of 668 and 64. That is the number the floor is set
-from.
+CI then measured the whole suite, all 296 tests: 98.63%, with 6 statements and 4
+branch arcs unexecuted out of 668 and 64. Each of the ten was read rather than
+chased. Nine were behaviour nobody had tested, and six new tests cover them —
+among them the guard that the web layer ships unwired, which had been checking
+one endpoint of three. That brings the whole suite to **99.86%**, and that is the
+number the floor is set from.
+
+The tenth is the `isinstance` in `error_handling._handle_domain_error`: the
+handler is registered for `DomainError` alone, so its false branch cannot be
+reached, and it exists to narrow the type for `mypy`. It stays uncovered and
+visible in the report. Reaching it would take a test calling the private handler
+with an exception it can never receive, which pins how the code is written rather
+than what it does; `# pragma: no branch` would hide the gap instead of explaining
+it.
 
 ## Options considered
 
@@ -44,18 +55,21 @@ from.
 
 ### Whether the number is enforced
 
-- **A floor, `fail_under = 98`, in `pyproject.toml`.** Chosen, because "cannot
+- **A floor, `fail_under = 99`, in `pyproject.toml`.** Chosen, because "cannot
   quietly drift" is a rule and a rule nobody enforces is a wish.
 - **Report only.** Rejected: it is the drift the build plan names.
-- **100%.** Rejected. The last few percent are reached by tests that pin how the
-  code is written rather than what it does, which `COLLABORATION.md` §7 prohibits.
-- **80%, the customary figure.** Rejected: nearly nineteen points below the
+- **100%.** Rejected. The one branch left is unreachable by design (see the
+  context), and in general the last few percent are reached by tests that pin how
+  the code is written rather than what it does, which `COLLABORATION.md` §7
+  prohibits.
+- **80%, the customary figure.** Rejected: nearly twenty points below the
   measured number, so it would let a large drop pass without a word.
-- **99, what the report displays.** Rejected: the report rounds 98.63 up, and
-  `fail_under` compares the unrounded value, so the floor would fail the very
-  code it was measured on.
+- **98.** Rejected once the gaps were closed: it would let the tests that closed
+  them be lost again without the floor noticing. `fail_under` compares the
+  unrounded value, so the floor is always set to a whole number *below* the
+  measurement, never to what the report displays.
 - **93, the unit suite's number.** Rejected. It is the number a machine without
-  Docker can reach, which makes local runs pass, but it leaves almost six points
+  Docker can reach, which makes local runs pass, but it leaves almost seven points
   of drop in the whole suite that nothing would notice.
 
 ### Lines or branches
@@ -74,7 +88,7 @@ whose result is shown.
 ## Decision
 
 `coverage` joins the `dev` group. `[tool.coverage.run]` measures `rag_ingestion`
-with branch coverage; `[tool.coverage.report]` sets `fail_under = 98`. In CI the
+with branch coverage; `[tool.coverage.report]` sets `fail_under = 99`. In CI the
 test step becomes `coverage run -m pytest`, followed by a step that writes the
 report as Markdown to the run summary without enforcing, then prints it to the log
 and enforces. That order puts the table on the page even on the run where the
@@ -93,6 +107,10 @@ expect the adapters to show as uncovered.
   that measures everything. Only CI's number is binding.
 - **Raising the floor is manual.** Nothing ratchets it automatically. When the
   number climbs, the floor stays where it is until a pull request moves it.
+- **The margin is small.** At 99.86% against 99, about six uncovered statements or
+  branches in today's code turn CI red. New code moves the denominator, so the
+  margin changes with every change; a pull request that adds untested code will
+  usually be the one that finds out.
 - **Code that is genuinely hard to test now costs something.** The relay (4.3) is
   the obvious candidate. It will need its tests in the same pull request, or a
   pull request that lowers the floor and says why. That friction is the point, but

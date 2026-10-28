@@ -260,3 +260,36 @@ class TestWhatTheMiddlewareLeavesAlone:
 
     def test_a_missing_content_length_reads_as_absent(self) -> None:
         assert body_limit._declared_length({"type": "http", "headers": []}) is None
+
+    def test_a_disconnect_passes_through_uncounted(self) -> None:
+        """A client that goes away is not sending a body, and is not refused.
+
+        The body arrives at exactly the cap, so one more counted byte would
+        trip it. The disconnect that follows must reach the application as it
+        was sent — the application needs it to stop work — not become a `413`.
+        """
+        disconnect: Message = {"type": "http.disconnect"}
+        messages = iter(
+            [
+                {"type": "http.request", "body": b"x" * CAP, "more_body": True},
+                disconnect,
+            ]
+        )
+        received: list[Message] = []
+
+        async def listening(scope: Any, receive: Any, send: Any) -> None:
+            received.append(await receive())
+            received.append(await receive())
+
+        async def receive() -> Message:
+            return next(messages)
+
+        async def send(message: Message) -> None:
+            return None
+
+        middleware = BodySizeLimitMiddleware(listening, max_bytes=CAP)
+        scope = {"type": "http", "method": "POST", "path": "/", "headers": []}
+
+        asyncio.run(middleware(scope, receive, send))
+
+        assert received[1] is disconnect
