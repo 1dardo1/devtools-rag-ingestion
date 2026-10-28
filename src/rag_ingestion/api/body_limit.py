@@ -172,7 +172,7 @@ def _handle_too_large(
 ) -> JSONResponse:
     """Answer `413` in the same shape as every other refusal.
 
-    Synchronous, like `_handle_domain_error`: Starlette accepts either, and a
+    Synchronous, like `error_handling._handle_refusal`: Starlette accepts either, and a
     handler that does no awaiting has no reason to be a coroutine.
     """
     return JSONResponse(

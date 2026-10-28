@@ -80,12 +80,14 @@ to tell them apart:
 | status | `code` | meaning |
 |---|---|---|
 | `404` | `collection_not_found` | no collection with that id |
+| `404` | `document_not_found` | no document with that id |
 | `409` | `duplicate_collection_name` | that name is taken |
 | `409` | `duplicate_document` | this exact content is already live in this collection |
 | `409` | `collection_full` | the collection is at its document ceiling |
 | `413` | `document_too_large` | the decoded content exceeds the domain's limit |
 | `413` | `request_too_large` | the *request body* exceeded the transport cap, and was refused before being read |
 | `422` | `missing_metadata_field`, `invalid_source_url`, `missing_collection_name` | malformed input |
+| `422` | `invalid_request` | the request does not fit the schema: an unknown or missing field, a wrong type, an unknown `doc_type`, content that is not base64, an id that is not a UUID. `detail` names each failing location |
 
 The two `413`s are different rules measuring different things, which is exactly
 what the `code` field is for: one is a document the domain refuses, the other is a

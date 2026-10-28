@@ -23,9 +23,10 @@ among them the guard that the web layer ships unwired, which had been checking
 one endpoint of three. That brings the whole suite to **99.86%**, and that is the
 number the floor is set from.
 
-The tenth is the `isinstance` in `error_handling._handle_domain_error`: the
-handler is registered for `DomainError` alone, so its false branch cannot be
-reached, and it exists to narrow the type for `mypy`. It stays uncovered and
+The tenth is the last `isinstance` in `error_handling._handle_refusal`: the
+handler is registered for three kinds of exception and tests them in turn, so by
+the third — `DomainError` — its false branch cannot be reached, and it exists to
+narrow the type for `mypy`. It stays uncovered and
 visible in the report. Reaching it would take a test calling the private handler
 with an exception it can never receive, which pins how the code is written rather
 than what it does; `# pragma: no branch` would hide the gap instead of explaining
