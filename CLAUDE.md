@@ -189,7 +189,7 @@ Done so far:
   with branch coverage on. **99 is what CI measured for the whole suite (99.86%),
   rounded down** — always down, because the report rounds and `fail_under`
   compares the exact value. **One branch stays uncovered on purpose**: the
-  `isinstance` in `error_handling._handle_domain_error` cannot be false, and
+  last `isinstance` in `error_handling._handle_refusal` cannot be false, and
   neither a test of the private handler nor a `pragma` is the answer. **Without Docker a local report fails the floor** — the unit suite alone
   is ~93% — so pass `--fail-under=0` there; only CI's number is binding. No
   Codecov: it needs a token, and the first secret belongs to 7.2. ADR 0024.

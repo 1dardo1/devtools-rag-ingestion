@@ -71,6 +71,7 @@ _DOCUMENTED_CODES: tuple[str, ...] = (
     "missing_metadata_field",
     "invalid_source_url",
     "missing_collection_name",
+    "invalid_request",
 )
 
 
@@ -115,11 +116,16 @@ class TestTheApiStillHasWhatTheReadmeShows:
     def test_every_documented_refusal_code_is_one_the_service_sends(self) -> None:
         """Read from the refusal table itself, not from a second list of strings."""
         from rag_ingestion.api import body_limit
-        from rag_ingestion.api.error_handling import _REFUSALS, DOCUMENT_NOT_FOUND
+        from rag_ingestion.api.error_handling import (
+            _REFUSALS,
+            DOCUMENT_NOT_FOUND,
+            INVALID_REQUEST,
+        )
 
         real = {code for _, code in _REFUSALS.values()} | {
             body_limit.CODE,
             DOCUMENT_NOT_FOUND,
+            INVALID_REQUEST,
         }
 
         assert set(_DOCUMENTED_CODES) == real, (

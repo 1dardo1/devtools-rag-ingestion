@@ -16,6 +16,7 @@ from http import HTTPStatus
 from uuid import UUID
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from rag_ingestion.api.schemas import ErrorResponse
@@ -65,6 +66,13 @@ _REFUSALS: dict[type[DomainError], tuple[HTTPStatus, str]] = {
 
 _UNMAPPED = (HTTPStatus.INTERNAL_SERVER_ERROR, "internal_error")
 
+# A request FastAPI could not parse into the endpoint's types: an unknown or
+# missing field, a value of the wrong type or kind, content that is not base64,
+# an identifier that is not a UUID. Answered in the same shape as every other
+# refusal, rather than FastAPI's `{"detail": [...]}`, so a client reads one shape
+# and branches on `code` alone.
+INVALID_REQUEST = "invalid_request"
+
 # Not a domain refusal, so not a row in the table above: `GetIngestionStatus`
 # returns `None` for an unknown document, because asking after one is an
 # ordinary empty result. Turning that into a `404` is this layer's decision, and
@@ -87,43 +95,50 @@ class DocumentNotFoundError(Exception):
 
 def register(app: FastAPI) -> None:
     """Teach an application how to answer every refusal it can make."""
-    app.add_exception_handler(DomainError, _handle_domain_error)
-    app.add_exception_handler(DocumentNotFoundError, _handle_document_not_found)
+    for refusal in (DomainError, DocumentNotFoundError, RequestValidationError):
+        app.add_exception_handler(refusal, _handle_refusal)
 
 
-def _handle_domain_error(
+def _handle_refusal(
     request: Request,  # noqa: ARG001 - Starlette's handler signature requires it
     exc: Exception,
 ) -> JSONResponse:
-    """Answer a domain refusal with its mapped status and a stable code.
+    """Answer a refusal with its status, a stable code and a readable detail.
 
-    Registered against `DomainError`, so a *new* domain error is answered
-    without anybody remembering to come back here — as a `500`, which is the
-    honest answer: an error this file has never been told about is a gap in this
-    table, not a request the caller got wrong. Defaulting to `400` would blame
-    the caller for our omission and hide the gap behind a plausible answer.
+    One handler for every kind, so every refusal's shape is decided in one
+    place. A *new* domain error is answered without anybody remembering to come
+    back here — as a `500`, which is the honest answer: an error this file has
+    never been told about is a gap in this table, not a request the caller got
+    wrong. Defaulting to `400` would blame the caller for our omission and hide
+    the gap behind a plausible answer.
 
     The parameter is typed `Exception` because that is Starlette's handler
-    signature, not because anything but a `DomainError` can arrive here. The
-    `isinstance` narrowing is what keeps the table's own type honest rather than
-    asserting the invariant with a `cast`.
+    signature, not because anything but the three registered kinds can arrive
+    here. The `isinstance` narrowing is what keeps the table's own type honest
+    rather than asserting the invariant with a `cast` — and why its last test
+    cannot be false.
     """
     status, code = _UNMAPPED
-    if isinstance(exc, DomainError):
+    detail = str(exc)
+    if isinstance(exc, RequestValidationError):
+        status, code = HTTPStatus.UNPROCESSABLE_ENTITY, INVALID_REQUEST
+        detail = _describe(exc)
+    elif isinstance(exc, DocumentNotFoundError):
+        status, code = HTTPStatus.NOT_FOUND, DOCUMENT_NOT_FOUND
+    elif isinstance(exc, DomainError):
         status, code = _REFUSALS.get(type(exc), _UNMAPPED)
-    body = ErrorResponse(code=code, detail=str(exc))
+    body = ErrorResponse(code=code, detail=detail)
     return JSONResponse(status_code=status, content=body.model_dump())
 
 
-def _handle_document_not_found(
-    request: Request,  # noqa: ARG001 - Starlette's handler signature requires it
-    exc: Exception,
-) -> JSONResponse:
-    """Answer an unknown document with `404` and a stable code.
+def _describe(exc: RequestValidationError) -> str:
+    """Say where the request failed validation and why, one clause per error.
 
-    Before this existed the endpoint raised FastAPI's `HTTPException`, whose body
-    is `{"detail"}` alone — the one refusal without a `code`, while the OpenAPI
-    document promised `ErrorResponse` for it.
+    Built from each error's location and message only. `str(exc)` would include
+    every error's `input`, which for a document is the base64 content itself —
+    up to the body cap, echoed back to the caller and into any log of responses.
     """
-    body = ErrorResponse(code=DOCUMENT_NOT_FOUND, detail=str(exc))
-    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content=body.model_dump())
+    return "; ".join(
+        f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+        for error in exc.errors()
+    )

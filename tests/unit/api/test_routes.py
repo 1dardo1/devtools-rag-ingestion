@@ -180,6 +180,8 @@ class TestCreatingACollection:
         )
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json()["code"] == "invalid_request"
+        assert "body.owner" in response.json()["detail"]
 
 
 class TestSubmittingADocument:
@@ -268,10 +270,11 @@ class TestSubmittingADocument:
             json=_body(doc_type="interpretive_dance"),
         )
 
-        # Pydantic's own refusal, so the body is FastAPI's shape rather than
-        # ours — the enum never reaches `DocType`, which would have raised
-        # `ValueError` and become a 500.
+        # Pydantic's own refusal — the enum never reaches `DocType`, which would
+        # have raised `ValueError` and become a 500 — answered in our shape.
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json()["code"] == "invalid_request"
+        assert "body.metadata.doc_type" in response.json()["detail"]
 
     def test_a_malformed_collection_id_never_reaches_the_domain(
         self, client: TestClient
@@ -279,6 +282,7 @@ class TestSubmittingADocument:
         response = client.post("/collections/not-a-uuid/documents", json=_body())
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json()["code"] == "invalid_request"
 
     def test_content_that_is_not_base64_is_refused(self, client: TestClient) -> None:
         collection_id = _a_collection(client)
@@ -292,6 +296,10 @@ class TestSubmittingADocument:
         )
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json()["code"] == "invalid_request"
+        # The detail says where and why, never what: echoing the input would
+        # send a whole document's content back with its own refusal.
+        assert "not base64!!" not in response.json()["detail"]
 
 
 class TestReportingOnADocument:
@@ -326,6 +334,7 @@ class TestReportingOnADocument:
         response = client.get("/documents/not-a-uuid")
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json()["code"] == "invalid_request"
 
 
 class TestTheLayerItself:
@@ -342,6 +351,33 @@ class TestTheLayerItself:
         }
         # The refusal shape is documented too, not just the happy path.
         assert "ErrorResponse" in schema["components"]["schemas"]
+
+    def test_every_documented_refusal_has_the_one_refusal_shape(
+        self, client: TestClient
+    ) -> None:
+        """FastAPI documents its own `HTTPValidationError` for any route with
+        parameters, unless the route says otherwise. The service answers every
+        refusal as `ErrorResponse`, so the document must not promise anything
+        else — this fails if a new route forgets to declare its `422`.
+        """
+        schema = client.get("/openapi.json").json()
+
+        refusals = {
+            f"{method.upper()} {path} {status}": response["content"][
+                "application/json"
+            ]["schema"]["$ref"]
+            for path, operations in schema["paths"].items()
+            for method, operation in operations.items()
+            for status, response in operation["responses"].items()
+            if status.startswith("4")
+        }
+
+        assert refusals
+        assert {
+            refusal: ref
+            for refusal, ref in refusals.items()
+            if ref != "#/components/schemas/ErrorResponse"
+        } == {}
 
     def test_every_endpoint_is_synchronous(self) -> None:
         """ADR 0007 is a rule, so something other than review should hold it.

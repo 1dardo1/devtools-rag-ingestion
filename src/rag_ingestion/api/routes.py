@@ -115,7 +115,10 @@ def post_document(
 @router.get(
     "/documents/{document_id}",
     summary="Report on a submitted document",
-    responses={HTTPStatus.NOT_FOUND: _REFUSAL},
+    responses={
+        HTTPStatus.NOT_FOUND: _REFUSAL,
+        HTTPStatus.UNPROCESSABLE_ENTITY: _REFUSAL,
+    },
 )
 def get_document(
     document_id: UUID,
