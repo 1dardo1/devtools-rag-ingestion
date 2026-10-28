@@ -1,7 +1,7 @@
 # 12. The initial database schema
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-09
+- **Last revised:** 2026-10-28
 
 ## Context
 
@@ -96,7 +96,7 @@ therefore commits to the **envelope** and leaves the payload opaque.
 - **`text` with a `CHECK` naming the four members.** Chosen.
 
 **`doc_type` is deliberately not constrained the same way**, and the asymmetry
-is the point. It has twenty-six members, every addition would be a migration,
+is the point. It has twenty-five members, every addition would be a migration,
 and *nothing in this schema branches on its value* — so a check would buy
 tidiness at the price of coupling the schema to a list that is expected to
 grow. An unrecognised `doc_type` is caught instead when the row is read back
@@ -184,7 +184,7 @@ cannot be deleted. Nothing in this service deletes collections; when something
 does, that is a decision to take then rather than a default to inherit now.
 
 **`outbox`** — `outbox_id bigint generated always as identity` primary key,
-`event_type text`, `payload jsonb`, `occurred_at timestamptz`, and
+`event_type text` non-blank, `payload jsonb`, `occurred_at timestamptz`, and
 `published_at timestamptz` left `NULL` until the relay has sent it. One partial
 index on the unpublished rows, so the index holds the backlog rather than every
 event ever published.
