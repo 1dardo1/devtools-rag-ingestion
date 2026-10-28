@@ -200,22 +200,40 @@ Done so far:
   know about. **Relock with the container's `uv`, not 0.12.10**: the newer one also
   prunes `greenlet` wheels SQLAlchemy never requests on s390x and riscv64, which is
   an unrelated diff in any pull request that touches the lockfile.
-- Twenty-four ADRs, in `docs/adr/`. 302 tests — 249 unit, 53 integration.
+- Twenty-five ADRs, in `docs/adr/`. 302 tests — 249 unit, 53 integration.
 
-**Next: 7.2, the public deployment — and it is the gate. It is waiting on Carlos**,
-who asked for options without payment barriers; the free tiers could not be verified
-from here (the egress proxy blocks the providers' own pricing pages), so the platform
-is his to pick and then this repository writes the configuration for it. 7.3 was done
-in the meantime.
+**Next: 7.2, the public deployment — and it is the gate. The platform is chosen:
+Render's free web service for the API, Neon's free PostgreSQL, both in Frankfurt.**
+ADR 0025. `render.yaml` is the Blueprint, and `DATABASE_URL` is entered in Render's
+dashboard (`sync: false`), never committed. It is three pull requests, **and the
+first two are merged:**
 
-**On 7.2 when it resumes:** `docs/BUILD-PLAN.md`'s
-graph has `U52 --> U72` and `U63 --> U72`; both are now done, so nothing blocks it.
-`CLAUDE.md` ranks the gate above everything else: green CI is done, the public URL
-is the only half still open. Everything left in Phase 6 (more integration tests) is
-polish beside it. **7.2 needs decisions only Carlos can make** — which
-platform, and an account on it — plus real credentials, which is the first time this
-repository has had a secret to protect and therefore the moment ADR 0022 says to
-revisit the secret scanner.
+1. ~~`render.yaml` and ADR 0025.~~ **Merged, #44.**
+2. ~~`.github/workflows/migrate.yml`~~ **Merged, #45.** A `workflow_dispatch`
+   workflow that runs `alembic upgrade head` against Neon, with the URL in the
+   `production` Environment's secret. It runs from `main` only, never two at once,
+   and has no downgrade. It is started by hand, so it cannot race Render's deploy;
+   ADR 0019 still forbids migrating at container start.
+3. Only after the README's three requests have been run against the public URL: the
+   URL in the README, and 7.2 and the gate marked done.
+
+**The work is now Carlos's, not code.** In order: the Neon project in Frankfurt
+(its plain `postgresql://` URL, not SQLAlchemy's form); the `production` Environment
+in GitHub with that URL as its `DATABASE_URL` secret and `main` as its only
+deployment branch; one run of **Migrate** from the Actions tab; the Blueprint in
+Render, with the same URL in its dashboard; then the README's three requests against
+the public URL. Nothing in this repository can be done to move the gate until those
+have happened — PR 3 waits on their result, not on more code.
+
+**The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
+credential is a PostgreSQL URL with a password, which the existing guard matches.
+The new trigger is the first credential of a shape the guard does not know.
+
+**Known costs, all in ADR 0025:** two cold starts in a row (Render sleeps after 15
+idle minutes, Neon after 5); an unauthenticated public write endpoint until Phase 13,
+bounded by Neon's 0.5 GB; a health check that cannot see a wrong `DATABASE_URL`; and
+the relay at 4.3 will not fit Render's free plan, so the platform question reopens
+there.
 
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016

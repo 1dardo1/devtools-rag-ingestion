@@ -1,0 +1,46 @@
+# The public deployment, as a Render Blueprint. ADR 0025.
+#
+# Render reads this file from the repository when the Blueprint is created in its
+# dashboard, so the deployment is reviewed in a pull request like any other change
+# rather than living as clicks nobody can see. It describes the API only: the
+# database is Neon, outside Render, and reaches the service as `DATABASE_URL`.
+#
+# Field names were checked against Render's own published Blueprint reference.
+# The schema itself could not be fetched from the machine this was written on, so
+# Render's validation on Blueprint creation is the first full check — and it fails
+# before anything is created.
+
+services:
+  - type: web
+    name: devtools-rag-ingestion
+    # The image `Dockerfile` already builds, unchanged — the same one CI builds and
+    # starts on every pull request (ADR 0020).
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    # Both halves in one region, because `transaction_per_request` opens a new
+    # connection per request: every request pays several round trips to the
+    # database, so the database has to be next door. Neon's project is in AWS
+    # eu-central-1, which is Frankfurt too. Immutable after creation.
+    region: frankfurt
+    branch: main
+    # Deploy a commit on `main` only once its CI checks have passed, so a red
+    # build never reaches the public URL.
+    autoDeployTrigger: checksPass
+    # For want of a health endpoint, the same probe `compose.yaml` uses. It needs
+    # no database, so a cold Neon cannot fail the deploy (ADR 0017 opens no
+    # connection until a request arrives).
+    healthCheckPath: /openapi.json
+    envVars:
+      # The secret. `sync: false` means Render asks for the value once, in its
+      # dashboard, when the Blueprint is created; it is never written here.
+      # Neon's *direct* URL, not the pooled one — ADR 0025.
+      - key: DATABASE_URL
+        sync: false
+      # The image listens on 8000 and Render routes to `PORT`, whose default is
+      # 10000. Telling Render the port is cheaper than changing the image's `CMD`,
+      # which the `image` and `compose` CI jobs depend on. `Settings` ignores
+      # `PORT`: it reads only the variables it declares.
+      - key: PORT
+        value: 8000
