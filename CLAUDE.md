@@ -206,9 +206,12 @@ ADR 0025. `render.yaml` is the Blueprint, and `DATABASE_URL` is entered in Rende
 dashboard (`sync: false`), never committed. It is planned as three pull requests:
 
 1. `render.yaml` and ADR 0025.
-2. A `workflow_dispatch` workflow that runs `alembic upgrade head` against Neon, with
-   the URL in a GitHub Environment secret. It is started by hand, so it cannot race
-   Render's deploy; ADR 0019 still forbids migrating at container start.
+2. `.github/workflows/migrate.yml`, a `workflow_dispatch` workflow that runs
+   `alembic upgrade head` against Neon, with the URL in the `production`
+   Environment's secret. It runs from `main` only, never two at once, and has no
+   downgrade. It is started by hand, so it cannot race Render's deploy; ADR 0019
+   still forbids migrating at container start. The button only appears once the
+   file is on `main`.
 3. Only after the README's three requests have been run against the public URL: the
    URL in the README, and 7.2 and the gate marked done.
 
