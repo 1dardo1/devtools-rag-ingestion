@@ -143,7 +143,7 @@ Anything with **no arrow between it** can be worked on at the same time.
 | **2.1**, **2.2** and **2.3** | The three use cases share the ports but never call each other. |
 | **4.4 HTTP layer** and **4.1 → 4.2 → 4.3** | The web layer talks only to the use cases; the storage chain only to the database. They meet for the first time at 4.5. This is the longest parallel stretch in the repository. |
 | **Phase 5 containers** and **Phase 6 quality** | The integration tests start their own throwaway containers; they do not need the production image to exist. |
-| **7.3 README** and **7.4 ADRs** and **everything** | Neither depends on code. 7.4 is already under way — eight ADRs are written. |
+| **7.3 README** and **7.4 ADRs** and **everything** | Neither depends on code. 7.4 is already under way — twenty-five ADRs are written. |
 | **`[+]` migration tool** and **`[+]` logging** and **Phases 1–2** | Both are decisions, not code. Making them while the domain is being written costs nothing and unblocks Phase 4 the moment it starts. |
 
 ## What blocks the most
@@ -231,7 +231,7 @@ Phase 3".
 
 **7.3 — README.** Write the explanation someone reads cold, having never seen the repository, and comes away understanding what it does and why it is built this way. **Done.** It now answers the first question a reader has — what the service accepts — with three commands that were executed against a running instance, and a guard holds the routes, fields and refusal codes against the generated OpenAPI in both directions. Writing it found three claims that had quietly stopped being true. See ADR 0023.
 
-**7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — eight are written.
+**7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — twenty-five are written.
 
 **GATE.** A public address that accepts documents, with all checks green. **The retrieval repository is not created until this is true.** The rule exists because two half-finished services are worth less than one finished one.
 

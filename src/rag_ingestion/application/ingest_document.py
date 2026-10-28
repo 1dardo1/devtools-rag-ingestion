@@ -53,9 +53,11 @@ class IngestDocument:
     def execute(self, command: IngestDocumentCommand) -> DocumentId:
         """Accept a document, or raise a `DomainError` explaining why not.
 
-        The checks run cheapest first: size needs nothing, the room check costs
-        one query, and the duplicate check costs another. A submission that is
-        too large is refused without touching the database at all.
+        The collection is looked up first, since no other check means anything
+        without one. After that the checks run cheapest first: size needs
+        nothing, the room check costs one query, and the duplicate check costs
+        another. A submission that is too large is refused after the lookup and
+        before either of those queries.
 
         The document is stored before the event is published. The order is not
         an implementation detail — the outbox depends on it. An announcement

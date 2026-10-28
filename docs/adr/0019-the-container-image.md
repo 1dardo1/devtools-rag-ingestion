@@ -1,7 +1,7 @@
 # 19. The container image
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-13 (corrected: see the LICENSE note below)
+- **Last revised:** 2026-10-28 (corrected: see the LICENSE and `python-dotenv` notes below)
 
 ## Context
 
@@ -102,8 +102,10 @@ same lever one level up without also putting a process manager in the image.
 `uvicorn` is added as a dependency, and **not `uvicorn[standard]`**. Those extras
 are `uvloop` (which barely touches a service whose endpoints run in a threadpool
 by ADR 0007), `httptools`, `watchfiles` (development reload), `websockets`
-(unused), and `python-dotenv` — a second configuration mechanism beside
-`pydantic-settings`. Six packages for an optimization nobody has measured.
+(unused), and `python-dotenv`. Six packages for an optimization nobody has
+measured. **Keeping `python-dotenv` out is not one of the reasons**, although it
+looks like one: `pydantic-settings` depends on it, so it is installed anyway,
+and `Settings` reads a `.env` file through it (`config.py`).
 
 `configure` also reclaims `uvicorn`, `uvicorn.error` and `uvicorn.access`, and
 the formatter drops `color_message`: uvicorn passes it in `extra`, holding the

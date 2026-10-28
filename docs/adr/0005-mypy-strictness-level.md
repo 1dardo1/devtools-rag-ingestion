@@ -1,7 +1,7 @@
 # 5. Close the three gaps that `mypy --strict` leaves open
 
 - **Status:** Accepted
-- **Last revised:** 2026-08-28
+- **Last revised:** 2026-10-28
 
 ## Context
 
@@ -58,11 +58,12 @@ of all three even where it costs effort.
 python_version = "3.14"
 strict = true
 files = ["src", "tests"]
+mypy_path = "src"
 warn_unreachable = true
 enable_error_code = [
     "ignore-without-code",
-    "redundant-expr",
     "possibly-undefined",
+    "redundant-expr",
     "truthy-bool",
 ]
 ```

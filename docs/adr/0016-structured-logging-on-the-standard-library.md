@@ -1,7 +1,7 @@
 # 16. Structured logging on the standard library
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-12
+- **Last revised:** 2026-10-28
 
 ## Context
 
@@ -130,12 +130,12 @@ service speaks, not whether its silence is legible. Naming that explicitly is th
 point; leaving this item marked "done" while the relay's silence remains
 ambiguous would be the worse outcome. **Due before 4.3.**
 
-**Negative: there is no request or correlation identifier.** Several log lines
-from one request cannot be stitched together, which is exactly what makes an
-incident hard to read. 4.5 is where that would be added — a middleware minting an
-id and a `contextvars` default the formatter picks up — and it is deliberately
-not done here, because a correlation id with one call site logging is
-scaffolding.
+**The request identifier this record deferred now exists.** It was left out
+here because a correlation id with one call site logging is scaffolding, and 4.5
+was named as the place for it. ADR 0017 added it there, in the shape this record
+described: a middleware in `api/request_id.py` mints one per request into a
+`ContextVar`, the formatter puts it in the envelope as `request_id`, and the
+response carries it as `X-Request-Id`.
 
 **Negative: nothing redacts anything.** A caller who puts a secret in `extra`
 logs the secret. The mitigation today is that nothing does; Phase 13 is where

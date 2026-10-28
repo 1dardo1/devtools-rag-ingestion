@@ -341,4 +341,4 @@ Terms used above that are worth having straight:
   somebody remembering it. This repository has six.
 - **ADR** — Architecture Decision Record: one document per non-obvious decision,
   naming the alternatives that were rejected and what the choice costs. There are
-  twenty-four in [`docs/adr/`](docs/adr/).
+  twenty-five in [`docs/adr/`](docs/adr/).
