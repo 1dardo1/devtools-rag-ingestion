@@ -62,6 +62,7 @@ _DOCUMENTED_FIELDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # that do not work.
 _DOCUMENTED_CODES: tuple[str, ...] = (
     "collection_not_found",
+    "document_not_found",
     "duplicate_collection_name",
     "duplicate_document",
     "collection_full",
@@ -114,9 +115,12 @@ class TestTheApiStillHasWhatTheReadmeShows:
     def test_every_documented_refusal_code_is_one_the_service_sends(self) -> None:
         """Read from the refusal table itself, not from a second list of strings."""
         from rag_ingestion.api import body_limit
-        from rag_ingestion.api.error_handling import _REFUSALS
+        from rag_ingestion.api.error_handling import _REFUSALS, DOCUMENT_NOT_FOUND
 
-        real = {code for _, code in _REFUSALS.values()} | {body_limit.CODE}
+        real = {code for _, code in _REFUSALS.values()} | {
+            body_limit.CODE,
+            DOCUMENT_NOT_FOUND,
+        }
 
         assert set(_DOCUMENTED_CODES) == real, (
             "the README's refusal table and the service disagree."

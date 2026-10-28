@@ -13,6 +13,7 @@ says to the caller in front of it.
 """
 
 from http import HTTPStatus
+from uuid import UUID
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -64,10 +65,30 @@ _REFUSALS: dict[type[DomainError], tuple[HTTPStatus, str]] = {
 
 _UNMAPPED = (HTTPStatus.INTERNAL_SERVER_ERROR, "internal_error")
 
+# Not a domain refusal, so not a row in the table above: `GetIngestionStatus`
+# returns `None` for an unknown document, because asking after one is an
+# ordinary empty result. Turning that into a `404` is this layer's decision, and
+# it still answers in the same shape as every other refusal.
+DOCUMENT_NOT_FOUND = "document_not_found"
+
+
+class DocumentNotFoundError(Exception):
+    """Raised by the HTTP layer when a document lookup comes back empty.
+
+    It lives here rather than in `domain/errors.py` because the domain does not
+    consider an absent document an error at all. Raising it, instead of building
+    a response in the endpoint, keeps every refusal's shape decided in this one
+    file.
+    """
+
+    def __init__(self, document_id: UUID) -> None:
+        super().__init__(f"There is no document {document_id}")
+
 
 def register(app: FastAPI) -> None:
-    """Teach an application how to answer every domain refusal."""
+    """Teach an application how to answer every refusal it can make."""
     app.add_exception_handler(DomainError, _handle_domain_error)
+    app.add_exception_handler(DocumentNotFoundError, _handle_document_not_found)
 
 
 def _handle_domain_error(
@@ -92,3 +113,17 @@ def _handle_domain_error(
         status, code = _REFUSALS.get(type(exc), _UNMAPPED)
     body = ErrorResponse(code=code, detail=str(exc))
     return JSONResponse(status_code=status, content=body.model_dump())
+
+
+def _handle_document_not_found(
+    request: Request,  # noqa: ARG001 - Starlette's handler signature requires it
+    exc: Exception,
+) -> JSONResponse:
+    """Answer an unknown document with `404` and a stable code.
+
+    Before this existed the endpoint raised FastAPI's `HTTPException`, whose body
+    is `{"detail"}` alone — the one refusal without a `code`, while the OpenAPI
+    document promised `ErrorResponse` for it.
+    """
+    body = ErrorResponse(code=DOCUMENT_NOT_FOUND, detail=str(exc))
+    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content=body.model_dump())

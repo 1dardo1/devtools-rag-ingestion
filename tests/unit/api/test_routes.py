@@ -312,9 +312,15 @@ class TestReportingOnADocument:
         }
 
     def test_an_unknown_document_is_not_found(self, client: TestClient) -> None:
-        response = client.get(f"/documents/{uuid4()}")
+        document_id = uuid4()
+
+        response = client.get(f"/documents/{document_id}")
 
         assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.json() == {
+            "code": "document_not_found",
+            "detail": f"There is no document {document_id}",
+        }
 
     def test_a_malformed_document_id_is_unprocessable(self, client: TestClient) -> None:
         response = client.get("/documents/not-a-uuid")

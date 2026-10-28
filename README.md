@@ -80,6 +80,7 @@ to tell them apart:
 | status | `code` | meaning |
 |---|---|---|
 | `404` | `collection_not_found` | no collection with that id |
+| `404` | `document_not_found` | no document with that id |
 | `409` | `duplicate_collection_name` | that name is taken |
 | `409` | `duplicate_document` | this exact content is already live in this collection |
 | `409` | `collection_full` | the collection is at its document ceiling |
