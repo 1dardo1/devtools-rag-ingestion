@@ -25,7 +25,7 @@ If you read nothing else:
 | | |
 |---|---|
 | **The one thing blocking the project** | There is no public URL. Until there is, the retrieval repository must not be started. |
-| **Who can unblock it** | Decided: Render plus Neon (ADR 0025). What remains is a migration workflow (next pull request), then your accounts and the first deploy. |
+| **Who can unblock it** | Decided: Render plus Neon (ADR 0025). The Blueprint and the migration workflow are merged (#44, #45). What remains is yours: the accounts, the secret, one migration run and the first deploy. |
 | **Blocked on somebody else** | The relay (4.3), which waits on the contracts repository. |
 | **Safe to leave alone** | Everything in "Deferred on purpose" — each has a written trigger for when to revisit. |
 
