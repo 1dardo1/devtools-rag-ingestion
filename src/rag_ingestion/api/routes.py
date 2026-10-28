@@ -18,13 +18,14 @@ from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from rag_ingestion.api.dependencies import (
     create_collection,
     get_ingestion_status,
     ingest_document,
 )
+from rag_ingestion.api.error_handling import DocumentNotFoundError
 from rag_ingestion.api.schemas import (
     CollectionCreatedResponse,
     CreateCollectionRequest,
@@ -114,7 +115,10 @@ def post_document(
 @router.get(
     "/documents/{document_id}",
     summary="Report on a submitted document",
-    responses={HTTPStatus.NOT_FOUND: _REFUSAL},
+    responses={
+        HTTPStatus.NOT_FOUND: _REFUSAL,
+        HTTPStatus.UNPROCESSABLE_ENTITY: _REFUSAL,
+    },
 )
 def get_document(
     document_id: UUID,
@@ -129,8 +133,5 @@ def get_document(
     """
     status = documents.execute(DocumentId(document_id))
     if status is None:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail=f"There is no document {document_id}",
-        )
+        raise DocumentNotFoundError(document_id)
     return IngestionStatusResponse.of(status)

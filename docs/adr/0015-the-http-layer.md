@@ -1,7 +1,7 @@
 # 15. The HTTP layer: FastAPI, base64 content, and per-request use cases
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-13
+- **Last revised:** 2026-10-28
 
 ## Context
 
@@ -100,13 +100,19 @@ The domain takes `bytes`, and `size_in_bytes` is computed from them.
   wrong, and defaulting to `400` would blame the caller for our omission.
 
 - **RFC 9457 `application/problem+json`** for the body. The correct answer in the
-  abstract, and rejected for a concrete reason: FastAPI's own validation failures
-  return `{"detail": ...}`, and adopting problem+json for our refusals would give
-  the API **two** error shapes. One slightly non-standard shape beats two
-  standards-compliant ones. The chosen body is `{"code", "detail"}` — `detail`
-  matching FastAPI's key, plus a stable `code`, because three distinct refusals
-  share `409` and a client should not have to parse English to tell a duplicate
-  name from a duplicate document from a full collection.
+  abstract, and rejected when this record was first written because FastAPI's own
+  validation failures return `{"detail": [...]}`, so problem+json for our refusals
+  would have given the API **two** error shapes. The chosen body is `{"code",
+  "detail"}` — `detail` matching FastAPI's key, plus a stable `code`, because three
+  distinct refusals share `409` and a client should not have to parse English to
+  tell a duplicate name from a duplicate document from a full collection.
+
+  **That reason no longer holds as stated.** Validation failures are now answered
+  in `{"code", "detail"}` too (`invalid_request`, below), so the two-shapes
+  argument would apply equally to problem+json with its own validation handler.
+  The choice stands on what is left: it is the shape already published, and
+  moving to problem+json is a breaking change for every client with nothing to
+  show for it beyond conformance.
 
 ### Two smaller ones
 
@@ -136,6 +142,15 @@ before any domain code runs. `doc_type` is typed as the domain's `DocType`, so
 Pydantic rejects an unknown kind with a `422` listing the allowed values —
 accepting a plain string and calling `DocType(...)` would raise `ValueError`,
 which is not a `DomainError` and would surface as a `500`.
+
+**Every refusal has one shape, validation included.** `error_handling` registers
+one handler for domain errors, for an unknown document (`document_not_found`, an
+HTTP-layer exception, because `GetIngestionStatus` treats absence as an empty
+result rather than an error) and for FastAPI's `RequestValidationError`
+(`invalid_request`). The last one's `detail` is built from each error's location
+and message only — **never its `input`**, which for a document is the base64
+content. Every route declares its `4xx` responses as `ErrorResponse`, so the
+OpenAPI document does not advertise FastAPI's `HTTPValidationError`.
 
 **Every handler is `def`.** ADR 0007 decided it; this is where the temptation
 lives, because FastAPI is async-native. FastAPI runs a `def` endpoint in a
