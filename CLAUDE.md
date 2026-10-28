@@ -203,20 +203,25 @@ Done so far:
 **Next: 7.2, the public deployment — and it is the gate. The platform is chosen:
 Render's free web service for the API, Neon's free PostgreSQL, both in Frankfurt.**
 ADR 0025. `render.yaml` is the Blueprint, and `DATABASE_URL` is entered in Render's
-dashboard (`sync: false`), never committed. It is planned as three pull requests:
+dashboard (`sync: false`), never committed. It is three pull requests, **and the
+first two are merged:**
 
-1. `render.yaml` and ADR 0025.
-2. `.github/workflows/migrate.yml`, a `workflow_dispatch` workflow that runs
-   `alembic upgrade head` against Neon, with the URL in the `production`
-   Environment's secret. It runs from `main` only, never two at once, and has no
-   downgrade. It is started by hand, so it cannot race Render's deploy; ADR 0019
-   still forbids migrating at container start. The button only appears once the
-   file is on `main`.
+1. ~~`render.yaml` and ADR 0025.~~ **Merged, #44.**
+2. ~~`.github/workflows/migrate.yml`~~ **Merged, #45.** A `workflow_dispatch`
+   workflow that runs `alembic upgrade head` against Neon, with the URL in the
+   `production` Environment's secret. It runs from `main` only, never two at once,
+   and has no downgrade. It is started by hand, so it cannot race Render's deploy;
+   ADR 0019 still forbids migrating at container start.
 3. Only after the README's three requests have been run against the public URL: the
    URL in the README, and 7.2 and the gate marked done.
 
-Between PRs 2 and 3, the steps are Carlos's: the Neon project, the Blueprint, the
-secret, running the migration, and the requests.
+**The work is now Carlos's, not code.** In order: the Neon project in Frankfurt
+(its plain `postgresql://` URL, not SQLAlchemy's form); the `production` Environment
+in GitHub with that URL as its `DATABASE_URL` secret and `main` as its only
+deployment branch; one run of **Migrate** from the Actions tab; the Blueprint in
+Render, with the same URL in its dashboard; then the README's three requests against
+the public URL. Nothing in this repository can be done to move the gate until those
+have happened — PR 3 waits on their result, not on more code.
 
 **The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
 credential is a PostgreSQL URL with a password, which the existing guard matches.
