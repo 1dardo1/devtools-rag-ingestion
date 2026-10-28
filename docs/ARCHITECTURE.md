@@ -109,7 +109,7 @@ Sufficient throughput for this workload, minimal local footprint, consumer group
 - **Broker:** Redis Streams
 - **Containers:** Docker, multi-stage builds, `docker compose` for local
 - **CI:** GitHub Actions
-- **Hosting:** Render or Fly.io
+- **Hosting:** Render for the API and Neon for PostgreSQL, both free tiers (see ADR 0025). The question reopens at 4.3, because the relay does not fit Render's free plan.
 
 ---
 
