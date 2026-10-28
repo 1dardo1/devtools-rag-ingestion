@@ -14,7 +14,7 @@ only job.
 does not exist, a criterion not met, a guard with a known hole. They are listed
 because a list of only the finished parts would be useless for deciding anything.
 
-Last updated: 2026-09-14, at commit `eb0900c`.
+Last updated: 2026-10-28, with ADR 0025.
 
 ---
 
@@ -25,7 +25,7 @@ If you read nothing else:
 | | |
 |---|---|
 | **The one thing blocking the project** | There is no public URL. Until there is, the retrieval repository must not be started. |
-| **Who can unblock it** | You. It needs an account somewhere, and I could not verify which free tiers are real from this machine. |
+| **Who can unblock it** | Decided: Render plus Neon (ADR 0025). What remains is a migration workflow (next pull request), then your accounts and the first deploy. |
 | **Blocked on somebody else** | The relay (4.3), which waits on the contracts repository. |
 | **Safe to leave alone** | Everything in "Deferred on purpose" — each has a written trigger for when to revisit. |
 
@@ -33,7 +33,10 @@ If you read nothing else:
 
 ## 1. The gate: there is no public deployment
 
-**Status:** open. This is the single most important item.
+**Status:** open, but the platform is decided. Render's free web service runs the
+API and Neon's free PostgreSQL holds the data, both in Frankfurt; ADR 0025 records
+why and what it costs. The history below is kept because it shows how the choice
+was reached.
 
 ### What it is
 
@@ -260,8 +263,13 @@ with no recognisable form would get through, and it does not read git history.
 
 A proper scanner (gitleaks and similar) would do both. It was declined because it
 means another third-party tool to pin and audit, for a repository that contains no
-secrets at all. **The trigger to revisit is the deployment** — the moment there is a
+secrets at all. **The trigger to revisit was the deployment**, the moment there is a
 real credential worth protecting.
+
+**Revisited with ADR 0025, and deferred again.** The deployment's only credential
+is a PostgreSQL URL with a password, which is exactly the shape the guard already
+catches; a Neon-shaped URL was checked against it. **The new trigger is the first
+credential of a shape the guard does not know**, most likely an LLM API key.
 
 ### 5.2 Coverage measurement (roadmap 6.2)
 
