@@ -1,0 +1,80 @@
+# Apply the migrations to the deployed database, when a person says so. ADR 0025.
+#
+# Started by hand from the Actions tab and never by an event, because that is what
+# keeps it from racing Render's deploy: a merge would start this job and the
+# deploy at once, with nothing to order them. ADR 0019 already ruled out the other
+# obvious place, the container's start.
+#
+# It only goes up. There is deliberately no input for `alembic downgrade`: undoing
+# a schema change in production can delete data, and that should take a decision,
+# not a dropdown.
+name: Migrate
+
+on:
+  workflow_dispatch:
+
+# The job reads the repository and nothing else. Its one credential is the
+# database URL, and that comes from the `production` environment, not this token.
+permissions:
+  contents: read
+
+# Never two at once. A second run waits for the first instead of cancelling it,
+# because a migration stopped halfway is worse than one that waits its turn.
+concurrency:
+  group: migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate the deployed database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Holds the `DATABASE_URL` secret, so no other workflow can read it. Its
+    # "deployment branches" rule, set in the GitHub interface, also restricts it
+    # to `main`: the second lock on the same door as the first step below.
+    environment: production
+
+    steps:
+      # `workflow_dispatch` offers every branch in a dropdown. Running from one
+      # that is not `main` would apply a migration nobody has merged, so refuse
+      # it loudly rather than skipping the job, which would look like success.
+      - name: Refuse anything but main
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "migrations run from main only, not from ${GITHUB_REF}" >&2
+          exit 1
+
+      # Pinned to the same commits `ci.yml` pins, for the same reason (ADR 0008).
+      # No credentials left behind in `.git`: nothing after this pushes.
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+
+      # The runtime set only. Alembic is a runtime dependency (ADR 0010), so
+      # nothing from the dev group is needed, and `--locked` installs exactly what
+      # `uv.lock` says, which is also what the image installs.
+      - name: Install the locked runtime dependencies
+        run: uv sync --locked --no-dev
+
+      # The secret is given to these three steps only, not to the whole job. The
+      # before and after revisions are this workflow's record of what it did.
+      - name: Revision before
+        run: uv run --no-sync alembic current
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Upgrade to head
+        run: uv run --no-sync alembic upgrade head
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Revision after
+        run: uv run --no-sync alembic current
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

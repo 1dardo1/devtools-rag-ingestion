@@ -109,11 +109,24 @@ Neon compute that is still waking cannot fail a deploy. Rejected for now: adding
 ADR 0019 already ruled out migrating when the container starts. That left three
 ways to run `alembic upgrade head` against Neon:
 
-- **A GitHub Actions workflow started by hand (`workflow_dispatch`).** Chosen. It
-  is proposed in **its own pull request**, the next one, because it touches CI. A
-  human chooses the moment, so it cannot race Render's deploy. It always runs
-  in the same environment, and it leaves a record of who ran it and when. The URL
-  lives in a GitHub **Environment** secret, so only that workflow can read it.
+- **A GitHub Actions workflow started by hand (`workflow_dispatch`).** Chosen. This
+  is `.github/workflows/migrate.yml`, which went in its own pull request because it
+  touches CI. A human chooses the moment, so it cannot race Render's deploy. It
+  always runs in the same environment. It logs `alembic current` before and after
+  the upgrade, so every run records what it changed, along with who ran it and
+  when. The URL lives in the `production` Environment's secret, so only that
+  workflow can read it, and only the three Alembic steps receive it. Three more
+  rules:
+  - **It runs from `main` only.** A first step refuses any other branch, and the
+    Environment's deployment-branch rule says the same thing a second time.
+    Otherwise the branch dropdown could apply a migration nobody has merged.
+  - **Two runs never overlap.** A second run waits for the first rather than
+    cancelling it, because a migration stopped halfway is worse than one that
+    waits.
+  - **It only goes up.** There is no `downgrade` input: undoing a schema change in
+    production can delete data, and should take a decision, not a dropdown.
+    Requiring an approval on every run was also rejected, because the only
+    approver would be the person who pressed the button.
 - **From the developer's machine.** Rejected. It would work, but it depends on one
   laptop and leaves no record.
 - **Automatically on merge, or through Render's `preDeployCommand`.** Rejected. A
