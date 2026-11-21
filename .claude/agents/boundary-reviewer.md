@@ -18,9 +18,11 @@ surrounding code only where you need it to judge the change.
 
 1. **`src/rag_ingestion/domain/` imports only the standard library and itself.**
    No FastAPI, Pydantic, psycopg, SQLAlchemy, Alembic, uvicorn or Redis. If the
-   change needs an external type there, a port is missing. Check every `import`
-   and `from ... import` in `domain/`. No test enforces this yet, so you are the
-   check.
+   change needs an external type there, a port is missing.
+   `tests/unit/domain/test_the_domain_imports_nothing_external.py` enforces the
+   static imports, so a violation there fails CI. You still look for what it
+   cannot see: `importlib.import_module` with a string, and a change that weakens
+   or deletes that test.
 2. **Dependencies point inward.** `domain` imports nothing from the outer
    layers. `application` imports only `domain`. `infrastructure` and `api` may
    import inward. Only `main.py` wires the concrete adapters together.

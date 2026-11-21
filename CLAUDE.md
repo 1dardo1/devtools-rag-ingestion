@@ -42,6 +42,9 @@ adapters, with the dependency arrow pointing inward.
 
 - The `domain/` package imports nothing external. No FastAPI, no SQLAlchemy, no
   Redis client. If an external type seems necessary, a port is missing.
+  `tests/unit/domain/test_the_domain_imports_nothing_external.py` enforces it:
+  only the standard library and `rag_ingestion.domain` itself, `TYPE_CHECKING`
+  imports included.
 - Ports are `typing.Protocol`, not abstract base classes.
 - **Ports, use cases and adapters are synchronous.** FastAPI is async-native, so
   `async def` is the reflex; it was examined and rejected in ADR 0007. Endpoints
@@ -240,7 +243,7 @@ Done so far:
   know about. **Relock with the container's `uv`, not 0.12.10**: the newer one also
   prunes `greenlet` wheels SQLAlchemy never requests on s390x and riscv64, which is
   an unrelated diff in any pull request that touches the lockfile.
-- Twenty-five ADRs, in `docs/adr/`. 302 tests — 249 unit, 53 integration.
+- Twenty-five ADRs, in `docs/adr/`. 315 tests — 262 unit, 53 integration.
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
