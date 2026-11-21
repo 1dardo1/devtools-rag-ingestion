@@ -100,11 +100,15 @@ piece of engineering in this service.
 | 7.3 | English README with architecture rationale | Readable by someone who has never seen the repo |
 | 7.4 | ADRs committed | Every non-obvious decision recorded |
 
+> **7.2 is done (2026-11-21).** `https://devtools-rag-ingestion.onrender.com`
+> answered the README's three requests with `201`, `202` and `200`, and CI on
+> `main` is green. See ADR 0025.
+
 > **7.1 moved to Phase 0 as 0.2** and is done. The slot is left empty on
 > purpose; see the note there.
 
 > **HARD GATE.** The retrieval repository is not created until this phase is
-> complete.
+> complete. **Passed on 2026-11-21.**
 
 ## Later
 

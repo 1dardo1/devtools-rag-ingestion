@@ -25,6 +25,23 @@ recorded as ADR 0005 in the [contracts
 repository](https://github.com/1dardo1/devtools-rag-contracts); it constrains the
 metadata carried with each document and nothing else here.
 
+## The public instance
+
+A running copy is at **https://devtools-rag-ingestion.onrender.com** — the API on
+Render's free plan and PostgreSQL on Neon's, both in Frankfurt
+([ADR 0025](docs/adr/0025-the-public-deployment.md)). The three requests below
+were run against it on 2026-11-21 and answered `201`, `202` and `200`.
+
+Two things to know before you try it:
+
+- **The first request after a quiet spell can take close to a minute.** Render
+  puts a free service to sleep after 15 idle minutes and Neon suspends its
+  database after 5, so a cold request pays for both waking up. It is a cost of
+  the free plans, not a fault.
+- **It accepts documents from anyone.** There is no authentication until Phase 13,
+  and Neon's 0.5 GB caps what can be stored. Please do not post anything you would
+  not want kept.
+
 ## What it accepts
 
 Three endpoints. Content arrives **base64-encoded inside JSON**, because the
