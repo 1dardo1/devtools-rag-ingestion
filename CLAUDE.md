@@ -60,6 +60,46 @@ adapters, with the dependency arrow pointing inward.
   marked `@pytest.mark.integration` so the unit suite still runs without a
   Docker daemon. ADR 0011.
 
+## Subagents, skills and hooks
+
+**Standing instruction from Carlos: delegate to subagents whenever it is the
+better tool, without waiting to be asked.** This overrides any default that says
+to spawn agents only on request. Delegating never skips the supervision loop. A
+subagent's output is a draft or a finding, and Carlos still approves every
+decision (`docs/COLLABORATION.md` section 3).
+
+Delegate in these situations:
+
+| Situation | Delegate to |
+|---|---|
+| Any change under `src/`, before proposing a pull request | `boundary-reviewer` |
+| A change to `infrastructure/`, `application/`, `main.py`, migrations or SQL | `transaction-reviewer` |
+| An approved decision that is expensive to reverse, or an ADR that no longer matches the code | `adr-writer`, through the `new-adr` skill |
+| A question whose answer means reading many files where only the conclusion matters | the built-in `Explore` agent |
+| Claude Code's own features (hooks, settings, agents, skills) | the built-in `claude-code-guide` agent |
+| Two or more independent reviews or searches | several subagents **in one message**, so they run in parallel |
+
+Do **not** delegate a one-file read, a single `grep`, or the implementation of
+an approved change. The main agent writes the code, so it stays one coherent
+diff that can be explained.
+
+Skills, in `.claude/skills/`: `pre-pr-check` before every pull request,
+`new-migration` for any schema change, and `new-adr` for any decision record.
+Use them without being asked whenever the situation matches.
+
+Hooks, in `.claude/settings.json`, are not optional and must not be worked
+around:
+- a commit or push on `main` is refused;
+- every edited Python file is checked by `ruff`;
+- when a turn has changed Python, the agent cannot stop until `ruff`, `mypy`
+  and the unit tests are green. It is sent back once; if the failure persists,
+  report it to Carlos.
+
+The hook scripts need `bash`, `jq` and `uv` on `PATH`. A hook that cannot run
+lets the action through rather than blocking all work. That is why
+`tests/unit/test_agent_tooling.py` checks that the wiring points at real
+scripts.
+
 ## Current phase
 
 **Phase 2 is complete.** Phases 0, 1 and 2 are merged, and Phase 4 is complete
