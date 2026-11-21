@@ -1,7 +1,7 @@
 # 25. The public deployment: Render for compute, Neon for PostgreSQL
 
 - **Status:** Accepted
-- **Last revised:** 2026-10-28
+- **Last revised:** 2026-11-21
 
 ## Context
 
@@ -157,10 +157,11 @@ key in the retrieval service being the likeliest.
   committed.
 - Migrations run from a manually started workflow, added in the next pull request.
 
-**This ADR does not make 7.2 done.** Done is "a public URL accepts documents", and
-that is claimed only after the README's three requests have been run against the
-deployed service. That is a later pull request, as the README's examples were
-(ADR 0023).
+**This ADR did not make 7.2 done; the deployment did.** Done is "a public URL
+accepts documents", and that was claimed only after the README's three requests
+were run against the deployed service (ADR 0023 did the same for the examples).
+They were, on 2026-11-21, against `https://devtools-rag-ingestion.onrender.com`:
+`201`, `202` and `200`, with the document `pending` as the README says.
 
 ## Consequences
 
@@ -194,6 +195,8 @@ against Render's published Blueprint reference, but the `free` plan slug and the
 `frankfurt` region slug were taken from Render's documented usage rather than from
 the schema. Render validates the file when the Blueprint is created, before
 creating anything. If that fails, this ADR and the file are corrected in place.
+**Outcome, 2026-11-21: it did not fail.** Render accepted `render.yaml` unchanged,
+so `free` and `frankfurt` were valid slugs, and the first deploy went live.
 
 **Every request opens a TLS connection to Neon.** That was always true of
 `transaction_per_request`, but it is now a real network hop rather than localhost.
