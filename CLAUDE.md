@@ -242,28 +242,28 @@ Done so far:
   an unrelated diff in any pull request that touches the lockfile.
 - Twenty-five ADRs, in `docs/adr/`. 302 tests — 249 unit, 53 integration.
 
-**Next: 7.2, the public deployment — and it is the gate. The platform is chosen:
-Render's free web service for the API, Neon's free PostgreSQL, both in Frankfurt.**
-ADR 0025. `render.yaml` is the Blueprint, and `DATABASE_URL` is entered in Render's
-dashboard (`sync: false`), never committed. It is three pull requests, **and the
-first two are merged:**
+**7.2 is done, and the gate is passed (2026-11-21).** The service runs at
+**https://devtools-rag-ingestion.onrender.com** — Render's free web service for
+the API, Neon's free PostgreSQL 16, both in Frankfurt (ADR 0025). The README's
+three requests were run against it and answered `201`, `202` and `200`, and CI on
+`main` is green. Three things the deployment settled:
 
-1. ~~`render.yaml` and ADR 0025.~~ **Merged, #44.**
-2. ~~`.github/workflows/migrate.yml`~~ **Merged, #45.** A `workflow_dispatch`
-   workflow that runs `alembic upgrade head` against Neon, with the URL in the
-   `production` Environment's secret. It runs from `main` only, never two at once,
-   and has no downgrade. It is started by hand, so it cannot race Render's deploy;
-   ADR 0019 still forbids migrating at container start.
-3. Only after the README's three requests have been run against the public URL: the
-   URL in the README, and 7.2 and the gate marked done.
+- **Render accepted `render.yaml` unchanged**, so the `free` and `frankfurt` slugs
+  ADR 0025 could not verify were valid.
+- **`DATABASE_URL` is Neon's direct URL**, which carries `sslmode=require` and
+  `channel_binding=require`; `psycopg[binary]` handles both. It lives in Render's
+  dashboard and the `production` Environment's secret, never in the repository.
+- **The schema got there through the `Migrate` workflow**, run by hand from
+  `main`: `alembic current` after it reads `0001 (head)`.
 
-**The work is now Carlos's, not code.** In order: the Neon project in Frankfurt
-(its plain `postgresql://` URL, not SQLAlchemy's form); the `production` Environment
-in GitHub with that URL as its `DATABASE_URL` secret and `main` as its only
-deployment branch; one run of **Migrate** from the Actions tab; the Blueprint in
-Render, with the same URL in its dashboard; then the README's three requests against
-the public URL. Nothing in this repository can be done to move the gate until those
-have happened — PR 3 waits on their result, not on more code.
+The public database holds one test collection, `fastapi-docs`, and one test
+document from those requests.
+
+**Next: 4.3, the relay — still blocked twice over** (Phase 3 in contracts, and
+making the relay's silence legible, below). The retrieval repository **may now be
+created**; it already exists, empty, with a readme and a licence. It needs its
+own toolchain scaffold first. Phase 3 in `devtools-rag-contracts` is not blocked
+by anything and is what unblocks the relay.
 
 **The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
 credential is a PostgreSQL URL with a password, which the existing guard matches.
@@ -278,8 +278,7 @@ there.
 **4.3, the relay, is blocked twice over.** The graph reads
 `EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
 split out "making the relay's silence legible" as a decision also due before it.
-**Phase 5 (containers) is not blocked** and is the nearer half of the gate: the
-public URL is the only part still open.
+**Phase 5 (containers) is done** and so is the gate.
 
 **`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
 are independent checks and one run should report every failure. In `image` they are
@@ -349,5 +348,5 @@ This service must be **deployed with a public URL and green CI** before the
 retrieval repository is created. If progress stalls, the correct response is to
 finish this service, not to start the next one.
 
-Green CI is done (`ROADMAP.md` 0.2). The public URL is not, and it is the only
-half of the gate still open.
+**The gate is passed (2026-11-21).** Green CI is done (`ROADMAP.md` 0.2) and the
+public URL answers (7.2). The retrieval repository may be created.

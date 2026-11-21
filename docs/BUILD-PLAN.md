@@ -225,15 +225,15 @@ Phase 3".
 
 **6.2 — Coverage.** Measure how much of the code the tests actually exercise, and report it automatically so the number cannot quietly drift. **Done, with a floor rather than only a number.** CI runs the whole suite under `coverage` — integration tests included, since they are the only ones that reach the database code — puts the table on the run's summary page, and fails below 99%, set from what CI measured for the whole suite (99.86%). The floor only moves up. See ADR 0024.
 
-**6.3 — Secrets via environment.** Make sure no password, key or connection string is written down anywhere in the repository, and provide an example file showing which ones a deployment needs to supply. **Done, and held by a guard rather than by care:** `.env.example` lists exactly the settings the service reads, and three tests keep it honest — one scans every file that would be in the repository if the working tree were committed, staged or not, for credential shapes, one proves those patterns actually match, and one fails if the example and the settings drift apart. It found a credential-shaped example in `config.py` on its first run. **This unblocks 7.2, so the gate is one unit away.** See ADR 0022.
+**6.3 — Secrets via environment.** Make sure no password, key or connection string is written down anywhere in the repository, and provide an example file showing which ones a deployment needs to supply. **Done, and held by a guard rather than by care:** `.env.example` lists exactly the settings the service reads, and three tests keep it honest — one scans every file that would be in the repository if the working tree were committed, staged or not, for credential shapes, one proves those patterns actually match, and one fails if the example and the settings drift apart. It found a credential-shaped example in `config.py` on its first run. **This unblocked 7.2.** See ADR 0022.
 
-**7.2 — Public deployment.** Put the service on the internet at an address anyone can send a document to.
+**7.2 — Public deployment.** Put the service on the internet at an address anyone can send a document to. **Done (2026-11-21):** Render runs the image and Neon holds the database, both in Frankfurt, at `https://devtools-rag-ingestion.onrender.com`. The README's three requests answered `201`, `202` and `200` against it. See ADR 0025.
 
 **7.3 — README.** Write the explanation someone reads cold, having never seen the repository, and comes away understanding what it does and why it is built this way. **Done.** It now answers the first question a reader has — what the service accepts — with three commands that were executed against a running instance, and a guard holds the routes, fields and refusal codes against the generated OpenAPI in both directions. Writing it found three claims that had quietly stopped being true. See ADR 0023.
 
 **7.4 — ADRs.** Record every non-obvious decision with the alternatives that were rejected and what the choice costs. Already under way — twenty-five are written.
 
-**GATE.** A public address that accepts documents, with all checks green. **The retrieval repository is not created until this is true.** The rule exists because two half-finished services are worth less than one finished one.
+**GATE.** A public address that accepts documents, with all checks green. **Passed on 2026-11-21.** The retrieval repository may now be created; before this it was not to be. The rule exists because two half-finished services are worth less than one finished one.
 
 **Phase 13 — Security hardening.** Limit how fast anyone can hammer the service, check everything arriving from outside, and audit every secret. It comes last because hardening a system whose shape is still changing means doing it twice.
 
