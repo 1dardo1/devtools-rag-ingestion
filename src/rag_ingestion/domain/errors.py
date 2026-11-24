@@ -7,6 +7,8 @@ towards, and it keeps the wording of an error in one place rather than spread
 across every site that raises it.
 """
 
+from datetime import datetime
+
 
 class DomainError(Exception):
     """Base class for every error raised by the domain layer.
@@ -145,4 +147,14 @@ class NaiveTimestampError(DomainError):
         super().__init__(
             f"{field_name!r} must carry a timezone; a naive timestamp is "
             f"ambiguous the moment it leaves this process"
+        )
+
+
+class InconsistentBacklogError(DomainError):
+    """Raised when a backlog's count and its oldest instant contradict each other."""
+
+    def __init__(self, count: int, oldest: datetime | None) -> None:
+        super().__init__(
+            f"A backlog of {count} unpublished events cannot have an oldest"
+            f" instant of {oldest!r}"
         )
