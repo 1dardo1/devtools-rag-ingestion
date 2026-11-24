@@ -135,7 +135,8 @@ Done so far:
   on the connection it is given — the document's connection — so the two are one
   transaction. **The invariant is proved through the real `IngestDocument`**, not
   through the adapters in isolation: `TestTheDocumentAndItsOutboxRowAreAtomic`.
-  ADR 0014 records the payload shape and why Phase 3 still owns the contract.
+  ADR 0014 records the payload shape; since ADR 0026 the payload is built from
+  the contracts package rather than by hand.
 - **4.4, the HTTP layer.** `api/` with five modules: Pydantic schemas, providers
   that raise, the refusal table, three endpoints and `create_app()`. Content
   arrives base64 in JSON; `202` for an accepted document, never `201`. ADR 0015.
@@ -240,10 +241,12 @@ Done so far:
   five test modules fail at collection with `_eval_type() got an unexpected keyword
   argument 'prefer_fwd_module'`. CI is unaffected. Locally, `uvx uv@0.12.10 python
   install 3.14` fetches a final release that the container's older `uv` does not
-  know about. **Relock with the container's `uv`, not 0.12.10**: the newer one also
-  prunes `greenlet` wheels SQLAlchemy never requests on s390x and riscv64, which is
-  an unrelated diff in any pull request that touches the lockfile.
-- Twenty-five ADRs, in `docs/adr/`. 315 tests — 262 unit, 53 integration.
+  know about. **A full relock, with either `uv`, drops `greenlet` wheels SQLAlchemy
+  never requests on s390x and riscv64** — an unrelated diff in any pull request
+  that touches the lockfile. Measured with 0.11.32 (this container's) and 0.12.10
+  (CI's); both do it. So add only the lines the change needs and check with
+  `uv sync --locked`.
+- Twenty-six ADRs, in `docs/adr/`. 356 tests — 301 unit, 55 integration.
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
@@ -262,11 +265,38 @@ three requests were run against it and answered `201`, `202` and `200`, and CI o
 The public database holds one test collection, `fastapi-docs`, and one test
 document from those requests.
 
-**Next: 4.3, the relay — still blocked twice over** (Phase 3 in contracts, and
-making the relay's silence legible, below). The retrieval repository **may now be
-created**; it already exists, empty, with a readme and a licence. It needs its
-own toolchain scaffold first. Phase 3 in `devtools-rag-contracts` is not blocked
-by anything and is what unblocks the relay.
+**The outbox payload now comes from the contracts package (ADR 0026).**
+`_as_payload` builds `rag_contracts.events.DocumentIngested` and writes it, so an
+event the contract refuses rolls the document back with it. Things this settled,
+and what is still open:
+
+- **`devtools-rag-contracts` is a Git dependency pinned in `[tool.uv.sources]`.**
+  It is pinned **by tag**, `v0.3.0`, which is what contracts ADR 0008 asks for.
+  Never pin `v0.2.0`: it has no `py.typed`, and `mypy --strict` refuses the import.
+  To move to a newer release, change the tag and add only the new package's lines
+  to `uv.lock`, as the `uv` note above says.
+- **The Dockerfile build stage installs `git`**, because `uv` needs it for a Git
+  dependency and the slim image has none. It is in the build stage only. **That
+  build has not been run locally** (no Docker daemon): CI's `image` job proves it.
+- **The contract must never be stricter than the domain.** Review found it
+  refusing three `source_url` values the domain accepts (an upper-case scheme,
+  whitespace, a tab), which would have been a permanent 500. The contract was
+  loosened, and `test_a_source_url_the_domain_accepts_reaches_the_payload_unchanged`
+  and `test_an_event_the_contract_refuses_loses_the_document_too` hold it. The
+  `DocType` enum and the contract's pattern are also two definitions of one rule,
+  tied together only by `test_every_doc_type_the_domain_has_passes_the_contract`.
+- **`uv.lock` was patched by hand for this**, adding only the new package's lines,
+  for the reason in the `uv` note above. `uv sync --locked` accepts the file.
+- **Integration tests can be run without Docker** when a PostgreSQL 16 is
+  installed: start one as a non-root user, and replace
+  `testcontainers.community.postgres.PostgresContainer` with a stub through a
+  `-p` pytest plugin. 356 tests passed that way. CI still decides.
+
+**Next: 4.3, the relay.** It is now blocked only on making the relay's silence
+legible (ADR 0016's other half) and on the platform question, since the relay
+needs a process that is always on and Render's free plan has none. The retrieval
+repository **may now be created**; it exists, empty, and needs its own toolchain
+scaffold first.
 
 **The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
 credential is a PostgreSQL URL with a password, which the existing guard matches.
@@ -278,10 +308,10 @@ bounded by Neon's 0.5 GB; a health check that cannot see a wrong `DATABASE_URL`;
 the relay at 4.3 will not fit Render's free plan, so the platform question reopens
 there.
 
-**4.3, the relay, is blocked twice over.** The graph reads
-`EXT3 --> U43`, so it waits on Phase 3 in `devtools-rag-contracts`, and ADR 0016
-split out "making the relay's silence legible" as a decision also due before it.
-**Phase 5 (containers) is done** and so is the gate.
+**4.3, the relay, waits on one decision.** `EXT3 --> U43` is satisfied once this
+change has merged, and ADR 0016 split out "making the
+relay's silence legible" as a decision also due before it. **Phase 5 (containers)
+is done** and so is the gate.
 
 **`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
 are independent checks and one run should report every failure. In `image` they are

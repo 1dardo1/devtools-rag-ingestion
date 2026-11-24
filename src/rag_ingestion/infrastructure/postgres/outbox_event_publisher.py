@@ -11,18 +11,15 @@ only part of this chain that Phase 3 in `devtools-rag-contracts` blocks.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 import psycopg
 from psycopg.rows import TupleRow
 from psycopg.types.json import Jsonb
+from rag_contracts.events import EVENT_TYPE
+from rag_contracts.events import DocumentIngested as DocumentIngestedPayload
 
 from rag_ingestion.domain.events import DocumentIngested
-
-# Spelled out rather than taken from `type(event).__name__`. The class name is
-# Python's, and a rename is a refactor; this string is on the wire, where a
-# rename is a breaking change for every consumer. Deriving one from the other
-# would let a refactor silently publish a different event type.
-_EVENT_TYPE = "DocumentIngested"
 
 # `published_at` is left out of the column list, not set to NULL: the relay owns
 # it, and absent is how the row says "not yet sent". `outbox_id` is an identity
@@ -53,42 +50,43 @@ class PostgresOutboxEventPublisher:
         rolled back.
         """
         self.connection.execute(
-            _INSERT, (_EVENT_TYPE, Jsonb(_as_payload(event)), event.occurred_at)
+            _INSERT, (EVENT_TYPE, Jsonb(_as_payload(event)), event.occurred_at)
         )
 
 
-def _as_payload(event: DocumentIngested) -> dict[str, object]:
+def _as_payload(event: DocumentIngested) -> dict[str, Any]:
     """Turn the event into the JSON object a consumer will read.
 
-    **The field names are the domain's own**, which is deliberate rather than
-    lazy: `ROADMAP.md` 1.4 already agreed this shape, and Phase 3 turns that
-    agreement into the published schema in `devtools-rag-contracts`. Writing
-    anything else down here would be inventing a second shape for Phase 3 to
-    reconcile. **Phase 3 owns the contract** — a version field, renamed keys, a
-    formal schema — and when it lands, this function is the only thing that
-    changes.
+    **The shape is not decided here.** It is `rag_contracts.events.DocumentIngested`,
+    the schema both services install, and this function only fills it in from the
+    domain's event and writes it out. Building the contract model is also what
+    validates it, *before* the outbox row is written: an event the contract would
+    refuse raises here, inside the document's transaction, and rolls the document
+    back with it, instead of sitting in the outbox for the relay to republish for
+    ever. ADR 0026.
 
-    The conversions are explicit because they have to be: psycopg's `Jsonb`
-    refuses a raw `UUID` and a raw `datetime` outright, which is a good refusal.
-    It forces the wire representation to be chosen rather than inherited from
-    whatever `json` happened to do.
+    The values go in as strings and are parsed, which is what a consumer does with
+    them. It means the conversion this function performs is the one the wire
+    carries, not a second one that happens to agree.
 
     `occurred_at` appears here as well as in its own column, and that is not
     duplication to be tidied away. The column is the envelope's, and the relay
     orders and reasons about it; this copy is the contract's, and a consumer
-    reading only the payload needs it. Both are written from the same value in
-    one statement, so they cannot disagree — and keeping it here is what lets
-    the relay in 4.3 stay a dumb pipe instead of a thing that shapes messages.
+    reading only the payload needs it. The contract writes it in UTC, whatever
+    offset the domain's instant carries.
     """
-    return {
-        "document_id": str(event.document_id),
-        "collection_id": str(event.collection_id),
-        "content_hash": str(event.content_hash),
-        "occurred_at": event.occurred_at.isoformat(),
-        "metadata": {
-            "source_library": event.metadata.source_library,
-            "doc_type": event.metadata.doc_type.value,
-            "library_version": event.metadata.library_version,
-            "source_url": event.metadata.source_url,
-        },
-    }
+    contract = DocumentIngestedPayload.model_validate(
+        {
+            "document_id": str(event.document_id),
+            "collection_id": str(event.collection_id),
+            "content_hash": str(event.content_hash),
+            "occurred_at": event.occurred_at,
+            "metadata": {
+                "source_library": event.metadata.source_library,
+                "doc_type": event.metadata.doc_type.value,
+                "library_version": event.metadata.library_version,
+                "source_url": event.metadata.source_url,
+            },
+        }
+    )
+    return contract.model_dump(mode="json")

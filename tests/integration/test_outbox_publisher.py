@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any
 import psycopg
 import pytest
 from psycopg.rows import TupleRow
+from pydantic import ValidationError
+from rag_contracts.events import EVENT_TYPE
+from rag_contracts.events import DocumentIngested as DocumentIngestedContract
 
 from rag_ingestion.application.ingest_document import (
     IngestDocument,
@@ -111,10 +114,12 @@ class TestWhatPublishWrites:
 
         payload = _outbox_rows(migrated)[0][2]
         assert payload == {
+            "schema_version": 1,
             "document_id": str(event.document_id),
             "collection_id": str(event.collection_id),
             "content_hash": str(event.content_hash),
-            "occurred_at": _OCCURRED_AT.isoformat(),
+            # UTC with a `Z`: the contract's spelling, not `isoformat()`'s.
+            "occurred_at": "2026-09-12T11:45:00Z",
             "metadata": {
                 "source_library": "redis",
                 "doc_type": "explanation",
@@ -124,6 +129,26 @@ class TestWhatPublishWrites:
                 ),
             },
         }
+
+    def test_the_row_read_back_from_postgresql_is_a_valid_contract_event(
+        self, publisher: PostgresOutboxEventPublisher, migrated: Connection
+    ) -> None:
+        """The check the unit suite cannot make: what PostgreSQL gives back.
+
+        `jsonb` normalises what it stores, so a payload that validates going in
+        is not thereby one that validates coming out. A consumer only ever sees
+        the second. This passes the row's own `event_type` and `payload`, read
+        from the table, through the schema both services install.
+        """
+        event = _event(CollectionId.generate())
+
+        publisher.publish(event)
+
+        _, event_type, payload, _, _ = _outbox_rows(migrated)[0]
+        assert event_type == EVENT_TYPE
+        contract = DocumentIngestedContract.model_validate(payload)
+        assert contract.document_id == event.document_id.value
+        assert contract.occurred_at == event.occurred_at
 
     def test_absent_optional_metadata_is_null_in_the_payload(
         self, publisher: PostgresOutboxEventPublisher, migrated: Connection
@@ -236,6 +261,41 @@ class TestTheDocumentAndItsOutboxRowAreAtomic:
         caller.rollback()
 
         assert PostgresDocumentRepository(migrated).get(document_id) is None
+        assert _outbox_rows(migrated) == []
+
+    def test_an_event_the_contract_refuses_loses_the_document_too(
+        self,
+        ingest: IngestDocument,
+        caller: Connection,
+        migrated: Connection,
+        collection_id: CollectionId,
+    ) -> None:
+        """The contract's own refusal, inside the transaction, undoes the document.
+
+        `_as_payload` validates against `rag_contracts` before the outbox INSERT,
+        after the document row is already written. If that refusal left the
+        document behind, there would be a stored document nobody was told about:
+        the one thing this service must not do. The domain and the contract are
+        meant to agree, so a refusal is reached by corrupting a `Metadata` after
+        it was validated, which is how a disagreement between them would look.
+        """
+        disagreeing = Metadata(source_library="redis", doc_type=DocType.EXPLANATION)
+        object.__setattr__(disagreeing, "source_library", "   ")
+
+        with pytest.raises(ValidationError):
+            ingest.execute(
+                IngestDocumentCommand(
+                    collection_id=collection_id,
+                    content=_CONTENT,
+                    metadata=disagreeing,
+                )
+            )
+
+        # Not vacuous: the document really had been written before the refusal.
+        # This is the same connection, so it sees its own uncommitted row.
+        assert caller.execute("SELECT count(*) FROM documents").fetchone() == (1,)
+        caller.rollback()
+        assert migrated.execute("SELECT count(*) FROM documents").fetchone() == (0,)
         assert _outbox_rows(migrated) == []
 
     def test_a_database_error_after_the_announcement_loses_both(
