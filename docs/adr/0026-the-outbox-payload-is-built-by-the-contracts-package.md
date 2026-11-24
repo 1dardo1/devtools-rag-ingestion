@@ -52,8 +52,8 @@ has not been executed are marked below.
 
 - **By commit hash.** Rejected as the end state. A reviewer cannot read from a
   hash whether an update is a patch or a major version. Contracts ADR 0008 says to
-  pin by tag, so the pin is a tag. A commit `rev` is used only until the tag
-  exists; the tag will be `v0.3.0`.
+  pin by tag, so the pin is a tag. A commit `rev` was used while the tag did not
+  exist yet, and was replaced by `v0.3.0` before this was merged.
 - **By tag.** Chosen. Contracts `0.2.0` shipped without `py.typed`, so under
   `mypy --strict` it cannot be used, and its `source_url` pattern was stricter
   than this service's own rule (below). `0.3.0` is the first release ingestion can

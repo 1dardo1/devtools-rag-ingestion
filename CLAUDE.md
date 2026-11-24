@@ -271,9 +271,10 @@ event the contract refuses rolls the document back with it. Things this settled,
 and what is still open:
 
 - **`devtools-rag-contracts` is a Git dependency pinned in `[tool.uv.sources]`.**
-  It must be pinned **by tag**, `v0.3.0`; until that tag exists the pin is a commit
-  `rev`, which is why the pull request for this is not mergeable yet. Never pin
-  `v0.2.0`: it has no `py.typed`, and `mypy --strict` refuses the import.
+  It is pinned **by tag**, `v0.3.0`, which is what contracts ADR 0008 asks for.
+  Never pin `v0.2.0`: it has no `py.typed`, and `mypy --strict` refuses the import.
+  To move to a newer release, change the tag and add only the new package's lines
+  to `uv.lock`, as the `uv` note above says.
 - **The Dockerfile build stage installs `git`**, because `uv` needs it for a Git
   dependency and the slim image has none. It is in the build stage only. **That
   build has not been run locally** (no Docker daemon): CI's `image` job proves it.
@@ -307,8 +308,8 @@ bounded by Neon's 0.5 GB; a health check that cannot see a wrong `DATABASE_URL`;
 the relay at 4.3 will not fit Render's free plan, so the platform question reopens
 there.
 
-**4.3, the relay, waits on one decision.** `EXT3 --> U43` is satisfied once the
-contracts tag exists and this change has merged, and ADR 0016 split out "making the
+**4.3, the relay, waits on one decision.** `EXT3 --> U43` is satisfied once this
+change has merged, and ADR 0016 split out "making the
 relay's silence legible" as a decision also due before it. **Phase 5 (containers)
 is done** and so is the gate.
 
