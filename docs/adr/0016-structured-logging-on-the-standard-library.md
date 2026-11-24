@@ -1,7 +1,7 @@
 # 16. Structured logging on the standard library
 
 - **Status:** Accepted
-- **Last revised:** 2026-10-28
+- **Last revised:** 2026-11-24
 
 ## Context
 
@@ -29,7 +29,9 @@ architecture rather than being bolted on: `ARCHITECTURE.md` says the relay and
 the API do not share a lifecycle, but they do share a database. The API can
 report *the age of the oldest unpublished outbox row*, which is the relay's
 liveness measured through state both processes already touch — no coupling, no
-new channel. That is a proposal, not a decision.
+new channel. That was a proposal when this record was written; **ADR 0027 decided
+it**, together with a log line per relay run and a non-zero exit when the backlog
+is too old.
 
 ## Options considered
 
@@ -125,10 +127,14 @@ Eleven tests cover the contract, and four mutations confirm they bite: merging
 `record.msg` instead of `getMessage()` fails the `%`-formatting test, and dropping
 `default=repr` fails the unserialisable-value test.
 
-**Negative: the problem in the Context is still open.** This ADR settles how the
-service speaks, not whether its silence is legible. Naming that explicitly is the
-point; leaving this item marked "done" while the relay's silence remains
-ambiguous would be the worse outcome. **Due before 4.3.**
+**Negative: this ADR alone left the problem in the Context open.** It settles how
+the service speaks, not whether its silence is legible. Naming that explicitly was
+the point; leaving this item marked "done" while the relay's silence remained
+ambiguous would have been the worse outcome. **ADR 0027 now decides the other
+half**: the age of the oldest unpublished row, exposed by `GET /outbox/backlog`,
+logged on every relay run, and checked by `--once` on exit. It also records a
+residual hole, which is that nothing fails if the scheduled workflow stops
+running.
 
 **The request identifier this record deferred now exists.** It was left out
 here because a correlation id with one call site logging is scaffolding, and 4.5

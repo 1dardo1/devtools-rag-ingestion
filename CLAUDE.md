@@ -246,7 +246,7 @@ Done so far:
   that touches the lockfile. Measured with 0.11.32 (this container's) and 0.12.10
   (CI's); both do it. So add only the lines the change needs and check with
   `uv sync --locked`.
-- Twenty-six ADRs, in `docs/adr/`. 356 tests — 301 unit, 55 integration.
+- Twenty-seven ADRs, in `docs/adr/`. 356 tests — 301 unit, 55 integration.
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
@@ -262,8 +262,8 @@ three requests were run against it and answered `201`, `202` and `200`, and CI o
 - **The schema got there through the `Migrate` workflow**, run by hand from
   `main`: `alembic current` after it reads `0001 (head)`.
 
-The public database holds one test collection, `fastapi-docs`, and one test
-document from those requests.
+The public database holds one test collection, `fastapi-docs`, and three test
+documents from those requests and from checking the deployed contract.
 
 **The outbox payload now comes from the contracts package (ADR 0026).**
 `_as_payload` builds `rag_contracts.events.DocumentIngested` and writes it, so an
@@ -292,11 +292,28 @@ and what is still open:
   `testcontainers.community.postgres.PostgresContainer` with a stub through a
   `-p` pytest plugin. 356 tests passed that way. CI still decides.
 
-**Next: 4.3, the relay.** It is now blocked only on making the relay's silence
-legible (ADR 0016's other half) and on the platform question, since the relay
-needs a process that is always on and Render's free plan has none. The retrieval
-repository **may now be created**; it exists, empty, and needs its own toolchain
-scaffold first.
+**ADR 0027 decided where the relay runs and how its silence is read.** The relay
+is a command, `python -m rag_ingestion.relay`, with `--once` (drain the outbox and
+exit) and `--loop`. `--once` runs from a **scheduled GitHub Actions workflow every
+5 minutes**, because Render's free plan has no background process; `--loop` is for
+the compose stack and a future always-on host. **Redis is Upstash's free plan**,
+Redis Cloud's the fallback. Its silence is read three ways: `GET /outbox/backlog`
+(`unpublished` and `oldest_unpublished_age_seconds`), one JSON log line per run
+with the same numbers, and a `--once` run that exits non-zero when the oldest
+unpublished row is older than a threshold. The costs are in the ADR: latency of at
+least 5 minutes, GitHub's schedule is not a promise and is disabled after 60 days
+without repository activity, and **if GitHub stops running the workflow nothing
+fails** — only the endpoint shows it.
+
+**Next, in order:** (1) **Carlos tests Upstash** — `XADD`, `XGROUP CREATE`,
+`XREADGROUP`, `XACK` on a free database — because the Redis choice stands or falls
+on whether its free plan persists data and counts stream commands normally, which
+nobody has verified; (2) a proposal for the `GET /outbox/backlog` endpoint, whose
+port and use case need approval (`COLLABORATION.md` section 4); (3) a proposal for
+the relay itself, 4.3: `FOR UPDATE SKIP LOCKED`, publish then mark, batch size,
+retries, and Redis and the relay in `compose.yaml`. The retrieval repository
+**may now be created**; it exists, empty, and needs its own toolchain scaffold
+first.
 
 **The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
 credential is a PostgreSQL URL with a password, which the existing guard matches.
@@ -305,13 +322,13 @@ The new trigger is the first credential of a shape the guard does not know.
 **Known costs, all in ADR 0025:** two cold starts in a row (Render sleeps after 15
 idle minutes, Neon after 5); an unauthenticated public write endpoint until Phase 13,
 bounded by Neon's 0.5 GB; a health check that cannot see a wrong `DATABASE_URL`; and
-the relay at 4.3 will not fit Render's free plan, so the platform question reopens
-there.
+the relay at 4.3 will not fit Render's free plan, which ADR 0027 answers with a
+scheduled command.
 
-**4.3, the relay, waits on one decision.** `EXT3 --> U43` is satisfied once this
-change has merged, and ADR 0016 split out "making the
-relay's silence legible" as a decision also due before it. **Phase 5 (containers)
-is done** and so is the gate.
+**4.3, the relay, is unblocked.** `EXT3 --> U43` is satisfied, and the two
+decisions ADR 0016 and ADR 0025 left open are made (ADR 0027). What stands between
+it and the code is the Upstash test and two proposals, in the order above. **Phase 5
+(containers) is done** and so is the gate.
 
 **`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
 are independent checks and one run should report every failure. In `image` they are
@@ -358,9 +375,10 @@ schema deliberately does not enforce.
 `ruff`'s G004 forbids it so that formatting is deferred to the formatter, and
 structured fields go in `extra`, where they land under `context`.
 
-**What is still open is the half ADR 0016 split out:** a crashed relay and an
-idle relay both write nothing, so silence is still ambiguous. Due before 4.3,
-tracked in `docs/BUILD-PLAN.md`.
+**The half ADR 0016 split out is decided, not built.** A crashed relay and an idle
+relay both write nothing, so ADR 0027 reads the silence as the age of the oldest
+unpublished outbox row, through `GET /outbox/backlog`, a log line per run and a
+failing `--once` run. None of the three exists yet.
 
 **The transaction boundary is the caller's, everywhere.** No adapter commits.
 If a repository or publisher calls `commit()`, the invariant above is gone and

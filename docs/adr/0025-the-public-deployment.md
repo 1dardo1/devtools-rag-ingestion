@@ -1,7 +1,7 @@
 # 25. The public deployment: Render for compute, Neon for PostgreSQL
 
 - **Status:** Accepted
-- **Last revised:** 2026-11-21
+- **Last revised:** 2026-11-24
 
 ## Context
 
@@ -182,8 +182,11 @@ and it comes after the retrieval service, so this window is long. That is an
 accepted risk, chosen over delaying the gate.
 
 **Negative: the relay will not fit.** Render's free plan covers web services only;
-background workers start on a paid instance. So 4.3 reopens the platform question,
-and Fly.io may win it then.
+background workers start on a paid instance. So 4.3 reopens the platform question.
+**ADR 0027 answers it:** the relay runs as a command from a scheduled GitHub
+Actions workflow, with Upstash's free plan as the broker, and a paid Render worker
+is the rejected clean way out if the no-payment constraint relaxes. Fly.io did not
+win it.
 
 **Negative: the health check proves the process, not the database.** A wrong
 `DATABASE_URL` deploys green and fails on the first real request. That is the gap
