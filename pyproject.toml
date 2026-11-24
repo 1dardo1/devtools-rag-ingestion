@@ -23,14 +23,21 @@ license = { file = "LICENSE" }
 # configuration mechanism beside `pydantic-settings`, the duplication ADR 0017
 # spent a decision avoiding. Nothing here imports it; it is the process that
 # runs the app.
+# ADR 0026: the event schema lives in `devtools-rag-contracts` and nowhere else.
+# Pinned by tag in `[tool.uv.sources]` below, which is how ADR 0008 there says a
+# service pins it.
 dependencies = [
     "alembic>=1.19.2",
+    "devtools-rag-contracts",
     "fastapi>=0.141.1",
     "psycopg[binary]>=3.3.5",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "uvicorn>=0.38.0",
 ]
+
+[tool.uv.sources]
+devtools-rag-contracts = { git = "https://github.com/1dardo1/devtools-rag-contracts", rev = "78b7422897b2cf12d5faa5d2ea84ad79328555c3" }
 
 [build-system]
 requires = ["hatchling"]

@@ -14,6 +14,16 @@
 # ---------------------------------------------------------------- build stage
 FROM python:3.14-slim AS build
 
+# `git`, in this stage only. `devtools-rag-contracts` is a dependency fetched from
+# GitHub by tag (ADR 0026), and `uv` shells out to `git` to do it; the slim image
+# has none, so without this `uv sync` fails before it installs anything. It stays
+# in the build stage with `uv`, and the runtime stage below never sees it.
+# `ca-certificates` is named too rather than assumed present: `git` fetches over
+# HTTPS, and `--no-install-recommends` is what would leave it out.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Pinned, and pinned to **the version `.github/workflows/ci.yml` pins**. A
 # different resolver in the image than in CI is two answers to "what does
 # `uv.lock` mean"; `:latest` would be a third, arriving whenever.
