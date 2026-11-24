@@ -18,10 +18,10 @@ every change is a change to something already published. That is why this is
 decided now rather than alongside the relay.
 
 **Where the facts came from.** The decision and its alternatives were approved by
-Carlos in conversation on 2026-11-24. The code facts (`_as_payload` in
-`infrastructure/postgres/outbox_event_publisher.py`, the domain import guard) were
-given to the writer of this record and not re-derived from a run. Statements about
-what has and has not been executed are marked below.
+Carlos in conversation on 2026-11-24, and the choice to loosen the contract's
+`source_url` the same day. The code was run: the unit and integration suites, and
+the check of which URLs the domain and the contract accept. Statements about what
+has not been executed are marked below.
 
 ## Options considered
 
@@ -53,9 +53,10 @@ what has and has not been executed are marked below.
 - **By commit hash.** Rejected as the end state. A reviewer cannot read from a
   hash whether an update is a patch or a major version. Contracts ADR 0008 says to
   pin by tag, so the pin is a tag. A commit `rev` is used only until the tag
-  exists; the tag will be `v0.2.1`.
+  exists; the tag will be `v0.3.0`.
 - **By tag.** Chosen. Contracts `0.2.0` shipped without `py.typed`, so under
-  `mypy --strict` it cannot be used; `0.2.1` is the first release ingestion can
+  `mypy --strict` it cannot be used, and its `source_url` pattern was stricter
+  than this service's own rule (below). `0.3.0` is the first release ingestion can
   consume.
 
 ### How the image gets a Git dependency
@@ -79,9 +80,19 @@ is written in UTC with a `Z`. `rag_contracts` is a Git dependency pinned by tag
 and imported only under `infrastructure/`. The `Dockerfile` installs
 `ca-certificates` and `git` in its build stage.
 
-ADR 0014's other choices stand: a literal `event_type`, `occurred_at` stored in
-both the column and the payload from one value, and `publish` never contacting a
-broker.
+ADR 0014's other choices stand: `event_type` is a constant and never derived from
+a class name (it is now the contract's `EVENT_TYPE`, not a literal of this
+repository's), `occurred_at` is stored in both the column and the payload from one
+value, and `publish` never contacts a broker.
+
+**The contract is never stricter than the domain.** Reviewing this change showed
+the contract refusing three `source_url` values the domain accepts: an upper-case
+scheme, whitespace inside the URL, and a tab. Each would have been a document
+stored and then refused at the outbox on every attempt, a permanent 500 for
+something that used to return 202. The contract was loosened (its ADR 0007), and
+two tests hold the rule from this side. One passes such URLs through
+`_as_payload`. The other makes the contract refuse an event after the document row
+is written and checks that neither the document nor an outbox row survives.
 
 ## Consequences
 
@@ -106,14 +117,21 @@ change.** This environment has a Docker client and no daemon. The `image` job in
 CI (ADR 0020) is the only proof that the build stage works and that the runtime
 stage does not need `git`.
 
-**Negative: the integration tests could not be run locally either.** They read the
-row back from PostgreSQL and validate it against the contract, and are proved only
-by CI.
+**The integration tests were run, but not in a container.** There is no Docker
+daemon here, so the publisher's tests were run against a locally started
+PostgreSQL 16, through a test-only plugin that stood in for `testcontainers`: 356
+tests passed and coverage was 99%. CI, which does use the container, is still the
+binding result.
 
 **Negative: rows written before this change have no `schema_version`.** That
 includes a test row in the public database (ADR 0025). The contract reads a
 missing version as 1, so they remain valid, but it is a convention the contract
 carries for this one history, not something ingestion enforces.
+
+**Negative: the contract is now deliberately loose, and so is what a consumer can
+assume.** Because it must accept everything the domain does, `source_url` reaches
+a consumer as text that may not be a URL a browser would open. That cost is
+recorded in the contracts repository's ADR 0007.
 
 **Negative: `occurred_at` changed spelling.** `+00:00` became `Z`. Nothing has
 read the outbox, so nothing broke, but it is exactly the kind of change that

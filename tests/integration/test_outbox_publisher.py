@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import psycopg
 import pytest
 from psycopg.rows import TupleRow
+from pydantic import ValidationError
 from rag_contracts.events import EVENT_TYPE
 from rag_contracts.events import DocumentIngested as DocumentIngestedContract
 
@@ -260,6 +261,41 @@ class TestTheDocumentAndItsOutboxRowAreAtomic:
         caller.rollback()
 
         assert PostgresDocumentRepository(migrated).get(document_id) is None
+        assert _outbox_rows(migrated) == []
+
+    def test_an_event_the_contract_refuses_loses_the_document_too(
+        self,
+        ingest: IngestDocument,
+        caller: Connection,
+        migrated: Connection,
+        collection_id: CollectionId,
+    ) -> None:
+        """The contract's own refusal, inside the transaction, undoes the document.
+
+        `_as_payload` validates against `rag_contracts` before the outbox INSERT,
+        after the document row is already written. If that refusal left the
+        document behind, there would be a stored document nobody was told about:
+        the one thing this service must not do. The domain and the contract are
+        meant to agree, so a refusal is reached by corrupting a `Metadata` after
+        it was validated, which is how a disagreement between them would look.
+        """
+        disagreeing = Metadata(source_library="redis", doc_type=DocType.EXPLANATION)
+        object.__setattr__(disagreeing, "source_library", "   ")
+
+        with pytest.raises(ValidationError):
+            ingest.execute(
+                IngestDocumentCommand(
+                    collection_id=collection_id,
+                    content=_CONTENT,
+                    metadata=disagreeing,
+                )
+            )
+
+        # Not vacuous: the document really had been written before the refusal.
+        # This is the same connection, so it sees its own uncommitted row.
+        assert caller.execute("SELECT count(*) FROM documents").fetchone() == (1,)
+        caller.rollback()
+        assert migrated.execute("SELECT count(*) FROM documents").fetchone() == (0,)
         assert _outbox_rows(migrated) == []
 
     def test_a_database_error_after_the_announcement_loses_both(

@@ -74,6 +74,38 @@ class TestEveryDomainValueIsOneTheContractAccepts:
         )
 
 
+class TestTheContractIsNeverStricterThanTheDomain:
+    """A document the domain stored must never be refused at the outbox.
+
+    If the contract rejected something the domain accepted, ingestion would write
+    the document and then fail to announce it, and fail again on every retry: a
+    permanent 500 for an input that used to work. These are the inputs that
+    exposed it, each one valid by the domain's rule (`urlparse`, an http or https
+    scheme, a host). ADR 0026.
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "HTTPS://Docs.Example.com/A",
+            "https://example.com/a b",
+            "http://exa\tmple.com/x",
+            "https://example.com/caf\u00e9",
+            "https://example.com/?q=1#frag",
+        ],
+    )
+    def test_a_source_url_the_domain_accepts_reaches_the_payload_unchanged(
+        self, url: str
+    ) -> None:
+        metadata = Metadata(
+            source_library="uv", doc_type=DocType.CLI_REFERENCE, source_url=url
+        )
+
+        payload = _as_payload(_event(metadata))
+
+        assert payload["metadata"]["source_url"] == metadata.source_url
+
+
 class TestTheShapeOnTheWire:
     def test_the_payload_round_trips_to_the_domain_values(self) -> None:
         event = _event()

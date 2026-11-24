@@ -1,7 +1,7 @@
 # 12. The initial database schema
 
 - **Status:** Accepted
-- **Last revised:** 2026-10-28
+- **Last revised:** 2026-11-24
 
 ## Context
 
@@ -235,6 +235,8 @@ makes**, and 4.3 should not assume one.
 
 **Negative: the payload column exists before its contents are agreed.** Phase 3
 fixes the `DocumentIngested` schema in the contracts repository, and until it
-does, `jsonb` is a shape with nothing to say about what goes in it. That is the
-deliberate split — the envelope is this service's, the payload is the contract's
-— but it does mean 4.2 writes a column whose validity nothing here can check.
+did, `jsonb` was a shape with nothing to say about what goes in it. That is the
+deliberate split — the envelope is this service's, the payload is the contract's.
+It no longer leaves the column unchecked: since ADR 0026 the publisher validates
+the payload against that schema before writing it, though the column itself still
+enforces nothing.

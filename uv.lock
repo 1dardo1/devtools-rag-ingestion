@@ -307,8 +307,8 @@ wheels = [
 
 [[package]]
 name = "devtools-rag-contracts"
-version = "0.2.1"
-source = { git = "https://github.com/1dardo1/devtools-rag-contracts?rev=78b7422897b2cf12d5faa5d2ea84ad79328555c3#78b7422897b2cf12d5faa5d2ea84ad79328555c3" }
+version = "0.3.0"
+source = { git = "https://github.com/1dardo1/devtools-rag-contracts?rev=b59bb8f421236d9e4fdc710cbcbb68bad15098e6#b59bb8f421236d9e4fdc710cbcbb68bad15098e6" }
 dependencies = [
     { name = "pydantic" },
 ]
@@ -340,7 +340,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.19.2" },
-    { name = "devtools-rag-contracts", git = "https://github.com/1dardo1/devtools-rag-contracts?rev=78b7422897b2cf12d5faa5d2ea84ad79328555c3" },
+    { name = "devtools-rag-contracts", git = "https://github.com/1dardo1/devtools-rag-contracts?rev=b59bb8f421236d9e4fdc710cbcbb68bad15098e6" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.5" },
     { name = "pydantic", specifier = ">=2.13.5" },

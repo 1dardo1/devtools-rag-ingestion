@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-devtools-rag-contracts = { git = "https://github.com/1dardo1/devtools-rag-contracts", rev = "78b7422897b2cf12d5faa5d2ea84ad79328555c3" }
+devtools-rag-contracts = { git = "https://github.com/1dardo1/devtools-rag-contracts", rev = "b59bb8f421236d9e4fdc710cbcbb68bad15098e6" }
 
 [build-system]
 requires = ["hatchling"]
