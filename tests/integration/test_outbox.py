@@ -16,6 +16,9 @@ from rag_ingestion.application.get_event_backlog import (
     EventBacklogReport,
     GetEventBacklog,
 )
+from rag_ingestion.application.relay_outbox import RelayOutbox, RelayReport
+from rag_ingestion.domain.errors import EventBrokerError, RelayFailedError
+from rag_ingestion.domain.outbox_row import OutboxRow
 from rag_ingestion.infrastructure.postgres.event_backlog import PostgresEventBacklog
 from rag_ingestion.infrastructure.postgres.outbox import PostgresOutbox
 
@@ -36,6 +39,19 @@ _NOW = datetime(2026, 11, 26, 9, 10, tzinfo=UTC)
 class FixedClock:
     def now(self) -> datetime:
         return _NOW
+
+
+class RecordingBroker:
+    """Accepts every row, except the ones named, which always fail."""
+
+    def __init__(self, failing: set[int] | None = None) -> None:
+        self.sent: list[int] = []
+        self._failing = failing or set()
+
+    def publish(self, row: OutboxRow) -> None:
+        if row.outbox_id in self._failing:
+            raise EventBrokerError
+        self.sent.append(row.outbox_id)
 
 
 def _add(
@@ -247,3 +263,116 @@ class TestTheBacklogAfterwards:
         assert _backlog(migrated) == EventBacklogReport(
             unpublished=0, oldest_unpublished_age_seconds=None
         )
+
+
+class TestMarkingIgnoresWhatIsNotWaiting:
+    def test_an_id_that_does_not_exist_changes_nothing_and_raises_nothing(
+        self, migrated: Connection
+    ) -> None:
+        waiting = _add(migrated)
+
+        PostgresOutbox(migrated).mark_published([waiting + 1000], _SENT_AT)
+
+        assert _published_at(migrated, waiting) is None
+
+    def test_an_already_published_id_in_the_batch_keeps_its_stamp(
+        self, migrated: Connection
+    ) -> None:
+        sent = _add(migrated, published_at=_SENT_AT)
+        waiting = _add(migrated)
+
+        PostgresOutbox(migrated).mark_published([sent, waiting], _NOW)
+
+        assert _published_at(migrated, sent) == _SENT_AT
+        assert _published_at(migrated, waiting) == _NOW
+
+
+class TestTheRelayOverTheRealOutbox:
+    def test_a_failure_on_the_second_of_three_rows_rolls_everything_back(
+        self, migrated: Connection, postgres_url: str
+    ) -> None:
+        ids = [_add(migrated, n=n) for n in range(3)]
+        broker = RecordingBroker(failing={ids[1]})
+        sleeps: list[float] = []
+
+        with psycopg.connect(postgres_url) as caller:
+            relay = RelayOutbox(
+                outbox=PostgresOutbox(caller),
+                broker=broker,
+                clock=FixedClock(),
+                sleep=sleeps.append,
+                batch_size=10,
+            )
+            with pytest.raises(RelayFailedError) as raised:
+                relay.execute()
+            caller.rollback()
+
+        assert raised.value.outbox_id == ids[1]
+        assert sleeps == [1.0, 2.0, 4.0]
+        assert broker.sent == [ids[0]]
+        # Read through a different connection from the one that rolled back.
+        with psycopg.connect(postgres_url) as observer:
+            assert [_published_at(observer, i) for i in ids] == [None, None, None]
+            observer.rollback()
+
+    def test_a_successful_run_marks_the_batch_with_the_clocks_instant(
+        self, migrated: Connection, postgres_url: str
+    ) -> None:
+        ids = [_add(migrated, n=n) for n in range(3)]
+
+        with psycopg.connect(postgres_url) as caller:
+            report = RelayOutbox(
+                outbox=PostgresOutbox(caller),
+                broker=RecordingBroker(),
+                clock=FixedClock(),
+                sleep=lambda _: None,
+                batch_size=10,
+            ).execute()
+            caller.commit()
+
+        assert report == RelayReport(published=3)
+        assert [_published_at(migrated, i) for i in ids] == [_NOW, _NOW, _NOW]
+
+    def test_a_second_run_mid_publish_skips_the_rows_the_first_holds(
+        self, migrated: Connection, postgres_url: str
+    ) -> None:
+        ids = [_add(migrated, n=n) for n in range(3)]
+        second_reports: list[RelayReport] = []
+        second_broker = RecordingBroker()
+
+        with (
+            psycopg.connect(postgres_url) as first,
+            psycopg.connect(postgres_url) as second,
+        ):
+            second_relay = RelayOutbox(
+                outbox=PostgresOutbox(second),
+                broker=second_broker,
+                clock=FixedClock(),
+                sleep=lambda _: None,
+                batch_size=10,
+            )
+
+            class OverlappingBroker(RecordingBroker):
+                """While the first run publishes, a second run starts."""
+
+                def publish(self, row: OutboxRow) -> None:
+                    if not second_reports:
+                        second_reports.append(second_relay.execute())
+                    super().publish(row)
+
+            first_broker = OverlappingBroker()
+            first_report = RelayOutbox(
+                outbox=PostgresOutbox(first),
+                broker=first_broker,
+                clock=FixedClock(),
+                sleep=lambda _: None,
+                batch_size=10,
+            ).execute()
+            first.commit()
+            second.commit()
+
+        assert first_report == RelayReport(published=3)
+        assert second_reports == [RelayReport(published=0)]
+        assert second_broker.sent == []
+        assert first_broker.sent == ids
+        assert [_published_at(migrated, i) for i in ids] == [_NOW, _NOW, _NOW]
