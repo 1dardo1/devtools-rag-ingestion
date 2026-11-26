@@ -1,6 +1,6 @@
 # Proposal: the relay's internals (ROADMAP 4.3)
 
-- **Status:** Proposed, awaiting approval (`docs/COLLABORATION.md` §3 and §4)
+- **Status:** Approved by Carlos on 2026-11-26, with the three open questions decided (§4, §5, §7). Implementation still waits for the Upstash test in ADR 0027.
 - **Scope:** how the relay reads the outbox, publishes to Redis Streams, marks
   rows, retries and bounds the stream. It builds on ADR 0027, which decided where
   the relay runs and how its silence is measured, and does not revisit that.
@@ -124,7 +124,10 @@ cannot be tested without a Redis server, and the unit suite would need one.
 
 **Rejected: an abstract base class.** `CLAUDE.md` requires `Protocol`.
 
-### 7. A synchronous Redis client, `redis-py` (needs approval, a new dependency)
+### 7. A synchronous Redis client, `redis-py` (approved, a new dependency)
+
+**Approved (Carlos, 2026-11-26).** The Upstash test in ADR 0027 still decides
+whether the Redis protocol is the right choice at all.
 
 Ports and adapters are synchronous (ADR 0007 and `CLAUDE.md`), so the relay uses
 the synchronous client.
@@ -188,6 +191,6 @@ the developer's `.env`, and never in the repository. The guard
 1. Approve §4's open question (fail the run on an unsendable row), or prefer a
    different choice?
 2. Question 2 is decided (see §5).
-3. Approve `redis-py` as a dependency (§7)?
+3. Question 3 is decided (see §7).
 
-Question 1 is decided (see §4).
+All three questions are decided. The proposal is ready to be marked as approved.
