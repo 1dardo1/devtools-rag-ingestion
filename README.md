@@ -44,7 +44,7 @@ Two things to know before you try it:
 
 ## What it accepts
 
-Three endpoints. Content arrives **base64-encoded inside JSON**, because the
+Four endpoints, three of them about documents. Content arrives **base64-encoded inside JSON**, because the
 domain stores arbitrary bytes and a service that cannot take a file with a `\0` in
 it is not storing bytes — [ADR
 0015](docs/adr/0015-the-http-layer.md) records the alternatives that were
@@ -87,6 +87,23 @@ curl http://localhost:8000/documents/$DOCUMENT_ID
 # 200 {"document_id": "7c1a…", "collection_id": "0b5f…",
 #      "status": "pending", "ingested_at": "2026-09-13T08:17:34.105557Z"}
 ```
+
+The fourth endpoint is about the service and not about a document: how many
+announcements are waiting to go out, and for how long the oldest has waited.
+
+```bash
+curl http://localhost:8000/outbox/backlog
+# 200 {"unpublished": 2, "oldest_unpublished_age_seconds": 2}
+```
+
+`oldest_unpublished_age_seconds` is whole seconds, and **`null` when nothing is
+waiting** — not `0`, which would mean the oldest event is brand new. It is how a
+person or a probe tells a relay that has stopped from one with nothing to do: a
+stopped relay shows as that number only growing. It always answers `200`, however
+large the number, because it is a measurement and the judgement belongs to whoever
+reads it. It reads the database, so it is deliberately not a health check.
+**Until the relay exists nothing marks an event as sent, so on the deployed service
+this number only grows.** [ADR 0027](docs/adr/0027-the-relay-runs-as-a-scheduled-command-and-its-silence-is-measured-by-backlog-age.md).
 
 `library_version` and `source_url` are optional; `source_library` and `doc_type`
 are not. Every refusal answers with the same shape, `{"code", "detail"}`, because

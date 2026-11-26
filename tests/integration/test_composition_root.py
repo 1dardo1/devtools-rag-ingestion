@@ -224,17 +224,19 @@ class TestTheTransactionIsPerRequestAndRolledBackOnRefusal:
     def test_every_declared_dependency_is_wired(self, client: TestClient) -> None:
         """A provider the composition root forgot is a runtime 500, not an error.
 
-        Touching all three routes is the only thing that proves all three
-        overrides exist, because nothing else does.
+        Touching all four routes is the only thing that proves all four
+        overrides exist, because nothing else does. The fourth, the backlog, was
+        added by ADR 0027.
         """
-        collection_id = client.post("/collections", json={"name": "all-three"}).json()[
+        collection_id = client.post("/collections", json={"name": "all-four"}).json()[
             "collection_id"
         ]
         document_id = client.post(
-            f"/collections/{collection_id}/documents", json=_document(content=b"three")
+            f"/collections/{collection_id}/documents", json=_document(content=b"four")
         ).json()["document_id"]
 
         assert client.get(f"/documents/{document_id}").status_code == HTTPStatus.OK
+        assert client.get("/outbox/backlog").status_code == HTTPStatus.OK
 
 
 class TestTheRequestIdentifier:
@@ -328,3 +330,41 @@ class TestTheTransactionBoundaryItself:
             generator.throw(RuntimeError(_FAILED_MIDWAY))
 
         assert connection.closed
+
+
+class TestTheBacklogOverHttp:
+    """`GET /outbox/backlog` over the real outbox and the real service. ADR 0027."""
+
+    def test_an_empty_outbox_reports_nothing_waiting(self, client: TestClient) -> None:
+        response = client.get("/outbox/backlog")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {
+            "unpublished": 0,
+            "oldest_unpublished_age_seconds": None,
+        }
+
+    def test_a_document_posted_over_http_is_a_waiting_event(
+        self, client: TestClient, collection_id: str
+    ) -> None:
+        posted = client.post(
+            f"/collections/{collection_id}/documents", json=_document()
+        )
+        assert posted.status_code == HTTPStatus.ACCEPTED
+
+        body = client.get("/outbox/backlog").json()
+
+        assert body["unpublished"] == 1
+        assert isinstance(body["oldest_unpublished_age_seconds"], int)
+        assert body["oldest_unpublished_age_seconds"] >= 0
+
+    def test_an_event_the_relay_has_sent_stops_counting(
+        self, client: TestClient, collection_id: str, migrated: Connection
+    ) -> None:
+        client.post(f"/collections/{collection_id}/documents", json=_document())
+        migrated.execute("UPDATE outbox SET published_at = now()")
+
+        assert client.get("/outbox/backlog").json() == {
+            "unpublished": 0,
+            "oldest_unpublished_age_seconds": None,
+        }

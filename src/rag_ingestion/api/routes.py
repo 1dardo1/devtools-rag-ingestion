@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends
 
 from rag_ingestion.api.dependencies import (
     create_collection,
+    get_event_backlog,
     get_ingestion_status,
     ingest_document,
 )
@@ -33,11 +34,13 @@ from rag_ingestion.api.schemas import (
     ErrorResponse,
     IngestDocumentRequest,
     IngestionStatusResponse,
+    OutboxBacklogResponse,
 )
 from rag_ingestion.application.create_collection import (
     CreateCollection,
     CreateCollectionCommand,
 )
+from rag_ingestion.application.get_event_backlog import GetEventBacklog
 from rag_ingestion.application.get_ingestion_status import GetIngestionStatus
 from rag_ingestion.application.ingest_document import (
     IngestDocument,
@@ -135,3 +138,24 @@ def get_document(
     if status is None:
         raise DocumentNotFoundError(document_id)
     return IngestionStatusResponse.of(status)
+
+
+@router.get(
+    "/outbox/backlog",
+    summary="Report how many announcements are waiting to go out",
+)
+def get_outbox_backlog(
+    backlog: Annotated[GetEventBacklog, Depends(get_event_backlog)],
+) -> OutboxBacklogResponse:
+    """Say how many events are unpublished, and how long the oldest has waited.
+
+    **A measurement, and never a judgement.** It answers `200` however old the
+    oldest event is: deciding that an age is too old belongs to whoever reads it,
+    and the relay carries its own threshold. A status code that changed with the
+    number would make this a health check, and a health check on a database would
+    be probed often and keep it awake. That is why this is not under `/health` and
+    why Render's check stays on `/openapi.json`. ADR 0027.
+
+    It has no refusals: it takes no input, so nothing about it can be malformed.
+    """
+    return OutboxBacklogResponse.of(backlog.execute())

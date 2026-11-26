@@ -1,7 +1,7 @@
 # 15. The HTTP layer: FastAPI, base64 content, and per-request use cases
 
 - **Status:** Accepted
-- **Last revised:** 2026-10-28
+- **Last revised:** 2026-11-24
 
 ## Context
 
@@ -131,11 +131,13 @@ factory.
 
 `api/` holds five modules: `schemas.py` (Pydantic request and response models),
 `dependencies.py` (providers that raise), `error_handling.py` (the refusal
-table), `routes.py` (three endpoints) and `app.py` (`create_app`).
+table), `routes.py` (four endpoints) and `app.py` (`create_app`).
 
-Three endpoints: `POST /collections` → `201`, `POST
+Four endpoints: `POST /collections` → `201`, `POST
 /collections/{collection_id}/documents` → `202`, `GET /documents/{document_id}`
-→ `200` or `404`.
+→ `200` or `404`, and `GET /outbox/backlog` → `200`. The last was added by ADR 0027:
+it is about the service and not about a document, takes no input and has no
+refusals, and it is a measurement, so it answers `200` however large the number.
 
 Path identifiers are typed `UUID`, so FastAPI refuses a malformed one with `422`
 before any domain code runs. `doc_type` is typed as the domain's `DocType`, so

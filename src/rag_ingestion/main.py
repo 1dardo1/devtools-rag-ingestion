@@ -40,6 +40,7 @@ from rag_ingestion.api.app import create_app
 from rag_ingestion.api.body_limit import BodySizeLimitMiddleware
 from rag_ingestion.api.request_id import RequestIdMiddleware
 from rag_ingestion.application.create_collection import CreateCollection
+from rag_ingestion.application.get_event_backlog import GetEventBacklog
 from rag_ingestion.application.get_ingestion_status import GetIngestionStatus
 from rag_ingestion.application.ingest_document import IngestDocument
 from rag_ingestion.config import Settings
@@ -49,6 +50,7 @@ from rag_ingestion.infrastructure.postgres.collection_repository import (
 from rag_ingestion.infrastructure.postgres.document_repository import (
     PostgresDocumentRepository,
 )
+from rag_ingestion.infrastructure.postgres.event_backlog import PostgresEventBacklog
 from rag_ingestion.infrastructure.postgres.outbox_event_publisher import (
     PostgresOutboxEventPublisher,
 )
@@ -145,6 +147,16 @@ def build(settings: Settings | None = None) -> FastAPI:
     ) -> GetIngestionStatus:
         return GetIngestionStatus(documents=PostgresDocumentRepository(connection))
 
+    def get_event_backlog(
+        connection: Annotated[Connection, Depends(unit_of_work)],
+    ) -> GetEventBacklog:
+        # A read, on the request's own connection like every other provider here.
+        # The commit `unit_of_work` ends with is a no-op for a transaction that only
+        # selected, and keeping one boundary beats a second, special one. ADR 0017.
+        return GetEventBacklog(
+            backlog=PostgresEventBacklog(connection), clock=SystemClock()
+        )
+
     app = create_app()
     body_limit.register(app)
     # Added last, which is what makes it run *first*: `add_middleware` inserts at
@@ -156,4 +168,5 @@ def build(settings: Settings | None = None) -> FastAPI:
     app.dependency_overrides[dependencies.ingest_document] = ingest_document
     app.dependency_overrides[dependencies.create_collection] = create_collection
     app.dependency_overrides[dependencies.get_ingestion_status] = get_ingestion_status
+    app.dependency_overrides[dependencies.get_event_backlog] = get_event_backlog
     return app
