@@ -21,6 +21,7 @@ from rag_ingestion.domain.content_hash import ContentHash
 from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.events import DocumentIngested
+from rag_ingestion.domain.unpublished_events import UnpublishedEvents
 
 
 class Clock(Protocol):
@@ -160,4 +161,23 @@ class EventPublisher(Protocol):
 
     def publish(self, event: DocumentIngested) -> None:
         """Announce that a document has been ingested."""
+        ...
+
+
+class EventBacklog(Protocol):
+    """Where the announcements still waiting to go out can be counted.
+
+    **A question, not a haystack**, like `DocumentRepository.exists_with_content_hash`:
+    the answer is a count and the oldest instant, never the events, so the
+    database can give it from the index that holds only the backlog.
+
+    **It is separate from `EventPublisher` on purpose.** The publisher writes
+    inside the document's transaction and is the collaborator of the single most
+    important invariant in this service; a read has no business on it. Two
+    clients ask this question, the HTTP endpoint and the relay, and sharing one
+    port is what makes both of them measure the same thing. ADR 0027.
+    """
+
+    def unpublished(self) -> UnpublishedEvents:
+        """Describe what has been written to the outbox and not yet sent."""
         ...

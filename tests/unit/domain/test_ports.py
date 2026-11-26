@@ -27,8 +27,10 @@ from rag_ingestion.domain.ports import (
     Clock,
     CollectionRepository,
     DocumentRepository,
+    EventBacklog,
     EventPublisher,
 )
+from rag_ingestion.domain.unpublished_events import UnpublishedEvents
 
 
 class InMemoryDocumentRepository:
@@ -190,3 +192,14 @@ def test_content_still_being_processed_is_present() -> None:
     repository.add(in_flight, b"a page mid-flight")
 
     assert repository.exists_with_content_hash(collection_id, content)
+
+
+class StubEventBacklog:
+    def unpublished(self) -> UnpublishedEvents:
+        return UnpublishedEvents(count=0)
+
+
+def test_a_stub_satisfies_the_event_backlog_port() -> None:
+    backlog: EventBacklog = StubEventBacklog()
+
+    assert backlog.unpublished().count == 0

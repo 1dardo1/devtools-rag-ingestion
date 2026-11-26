@@ -246,7 +246,7 @@ Done so far:
   that touches the lockfile. Measured with 0.11.32 (this container's) and 0.12.10
   (CI's); both do it. So add only the lines the change needs and check with
   `uv sync --locked`.
-- Twenty-seven ADRs, in `docs/adr/`. 356 tests — 301 unit, 55 integration.
+- Twenty-seven ADRs, in `docs/adr/`. 380 tests — 318 unit, 62 integration.
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
@@ -308,8 +308,9 @@ fails** — only the endpoint shows it.
 **Next, in order:** (1) **Carlos tests Upstash** — `XADD`, `XGROUP CREATE`,
 `XREADGROUP`, `XACK` on a free database — because the Redis choice stands or falls
 on whether its free plan persists data and counts stream commands normally, which
-nobody has verified; (2) a proposal for the `GET /outbox/backlog` endpoint, whose
-port and use case need approval (`COLLABORATION.md` section 4); (3) a proposal for
+nobody has verified; (2) the `GET /outbox/backlog` endpoint, approved and built in
+two pull requests: the value, port, use case and adapter (done), then the route, its
+wiring in `main.py`, the README section and the guard's lists; (3) a proposal for
 the relay itself, 4.3: `FOR UPDATE SKIP LOCKED`, publish then mark, batch size,
 retries, and Redis and the relay in `compose.yaml`. The retrieval repository
 **may now be created**; it exists, empty, and needs its own toolchain scaffold
@@ -378,7 +379,11 @@ structured fields go in `extra`, where they land under `context`.
 **The half ADR 0016 split out is decided, not built.** A crashed relay and an idle
 relay both write nothing, so ADR 0027 reads the silence as the age of the oldest
 unpublished outbox row, through `GET /outbox/backlog`, a log line per run and a
-failing `--once` run. None of the three exists yet.
+failing `--once` run. **The measure now exists but is not exposed:** `UnpublishedEvents`
+(a count and the oldest `occurred_at`), the port `EventBacklog`, the use case
+`GetEventBacklog` (which turns the instant into whole seconds with the `Clock`,
+never negative, `None` when nothing waits) and `PostgresEventBacklog`. The HTTP
+endpoint, the relay's log line and its exit status do not exist yet.
 
 **The transaction boundary is the caller's, everywhere.** No adapter commits.
 If a repository or publisher calls `commit()`, the invariant above is gone and
