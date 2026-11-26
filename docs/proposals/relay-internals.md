@@ -107,11 +107,11 @@ with the retrieval service, which does not exist yet.
 **Rejected: no trimming.** The stream reaches the plan's limit in time, and then
 every `XADD` fails.
 
-**Open question, and the main risk of this choice:** `MAXLEN` removes the oldest
-messages whether or not a consumer has read them. A retrieval service that is down
-for longer than the stream holds loses events silently. The mitigation is to size
-the bound above the longest outage we expect, and to revisit once retrieval's
-needs are known. Say if you prefer to block the proposal until then.
+**Decided (Carlos, 2026-11-26):** `MAXLEN ~ 100000` now. The stream may drop its
+oldest messages whether or not a consumer has read them, so a retrieval service
+down for longer than the stream holds loses events silently. The bound is revisited
+once retrieval states its outage tolerance. The 1 KB-per-event figure must be
+measured with the real payload before relying on it.
 
 ### 6. The broker is a port, and Redis is an adapter (needs approval)
 
@@ -187,8 +187,7 @@ the developer's `.env`, and never in the repository. The guard
 
 1. Approve §4's open question (fail the run on an unsendable row), or prefer a
    different choice?
-2. Approve §5's bound of 100000 now, or block until retrieval states its outage
-   tolerance?
+2. Question 2 is decided (see §5).
 3. Approve `redis-py` as a dependency (§7)?
 
 Question 1 is decided (see §4).
