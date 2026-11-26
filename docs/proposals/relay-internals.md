@@ -85,10 +85,10 @@ long as Redis is down, and spends the free minutes on waiting.
 `COLLABORATION.md` §4), and no failure mode yet needs one. Revisit when a row
 fails repeatedly for a reason that is not transient.
 
-**Open question for the reviewer:** a row whose payload cannot be sent at all,
-such as one that fails serialisation, would block its batch on every run. The
-proposal is to fail the run and log the `outbox_id`, so the backlog alarm fires.
-Skipping and marking it would lose it. Say if a different choice is wanted.
+**Decided (Carlos, 2026-11-26):** a row whose payload cannot be sent at all fails
+the run and logs its `outbox_id`, so the backlog alarm fires. The batch stays
+blocked until the row is fixed by hand. Skipping and marking it would lose it;
+skipping without marking would keep the alarm on forever.
 
 ### 5. Stream trimming: `XADD ... MAXLEN ~ 100000` (needs approval)
 
@@ -190,3 +190,5 @@ the developer's `.env`, and never in the repository. The guard
 2. Approve §5's bound of 100000 now, or block until retrieval states its outage
    tolerance?
 3. Approve `redis-py` as a dependency (§7)?
+
+Question 1 is decided (see §4).
