@@ -158,3 +158,34 @@ class InconsistentBacklogError(DomainError):
             f"A backlog of {count} unpublished events cannot have an oldest"
             f" instant of {oldest!r}"
         )
+
+
+class InvalidBatchSizeError(DomainError):
+    """Raised when the relay is asked to take no rows, or fewer than none."""
+
+    def __init__(self, value: int) -> None:
+        super().__init__(f"A relay batch must hold at least one row, not {value}")
+
+
+class EventBrokerError(DomainError):
+    """Raised by a broker adapter when it could not send a row.
+
+    The relay retries on this and on nothing else, so an adapter translates what
+    its client raises into this error and a bug elsewhere is not retried as if it
+    were an outage. ADR 0028.
+    """
+
+
+class RelayFailedError(DomainError):
+    """Raised when a row could not be sent, after every retry.
+
+    **It carries the row's `outbox_id`**, which is what a person needs to find the
+    row and fix it: the batch stays blocked until they do, and the id is the only
+    way to the cause. The caller rolls the batch back. ADR 0028.
+    """
+
+    def __init__(self, outbox_id: int, attempts: int) -> None:
+        self.outbox_id = outbox_id
+        super().__init__(
+            f"Outbox row {outbox_id} could not be sent after {attempts} attempts"
+        )
