@@ -35,6 +35,7 @@ _DOCUMENTED_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("post", "/collections", "201"),
     ("post", "/collections/{collection_id}/documents", "202"),
     ("get", "/documents/{document_id}", "200"),
+    ("get", "/outbox/backlog", "200"),
 )
 
 # Schema name -> the field names the README shows. A rename in either direction
@@ -53,6 +54,7 @@ _DOCUMENTED_FIELDS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "IngestionStatusResponse",
         ("document_id", "collection_id", "status", "ingested_at"),
     ),
+    ("OutboxBacklogResponse", ("unpublished", "oldest_unpublished_age_seconds")),
     ("ErrorResponse", ("code", "detail")),
 )
 

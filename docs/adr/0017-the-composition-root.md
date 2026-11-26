@@ -1,7 +1,7 @@
 # 17. The composition root
 
 - **Status:** Accepted
-- **Last revised:** 2026-09-12
+- **Last revised:** 2026-11-24
 
 ## Context
 
@@ -111,9 +111,10 @@ rather than arranging an environment, with `None` meaning "read the environment"
 which is what a deployment does.
 
 `build` configures logging, creates the app, adds the request-id middleware, and
-overrides all three providers. Each provider depends on `unit_of_work`, and
-FastAPI caches a dependency per request, so all three adapters receive the **same**
-connection.
+overrides all four providers (the fourth, `get_event_backlog`, was added by ADR
+0027 and reads the outbox on its own request). Each provider depends on
+`unit_of_work`, and FastAPI caches a dependency per request, so the three adapters
+of an ingestion receive the **same** connection.
 
 `SystemClock` is the `Clock` port's production implementation: three lines,
 always UTC.
@@ -151,5 +152,5 @@ connection and authentication handshake each time. Deferred on principle 10 of
 to measure yet. `psycopg-pool` is the obvious answer when there is.
 
 **Negative: a forgotten override is still only caught at runtime.** The test that
-touches all three routes is the whole of the protection, and it works by
+touches all four routes is the whole of the protection, and it works by
 exercising every route rather than by anything structural.

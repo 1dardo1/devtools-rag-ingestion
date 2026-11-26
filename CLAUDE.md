@@ -138,7 +138,8 @@ Done so far:
   ADR 0014 records the payload shape; since ADR 0026 the payload is built from
   the contracts package rather than by hand.
 - **4.4, the HTTP layer.** `api/` with five modules: Pydantic schemas, providers
-  that raise, the refusal table, three endpoints and `create_app()`. Content
+  that raise, the refusal table, four endpoints and `create_app()` (the fourth is
+  `GET /outbox/backlog`, ADR 0027). Content
   arrives base64 in JSON; `202` for an accepted document, never `201`. ADR 0015.
   **It ships wired to nothing on purpose** — the web layer and the storage chain
   meet for the first time at 4.5.
@@ -246,7 +247,7 @@ Done so far:
   that touches the lockfile. Measured with 0.11.32 (this container's) and 0.12.10
   (CI's); both do it. So add only the lines the change needs and check with
   `uv sync --locked`.
-- Twenty-seven ADRs, in `docs/adr/`. 380 tests — 318 unit, 62 integration.
+- Twenty-seven ADRs, in `docs/adr/`. 388 tests — 323 unit, 65 integration.
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
@@ -308,9 +309,7 @@ fails** — only the endpoint shows it.
 **Next, in order:** (1) **Carlos tests Upstash** — `XADD`, `XGROUP CREATE`,
 `XREADGROUP`, `XACK` on a free database — because the Redis choice stands or falls
 on whether its free plan persists data and counts stream commands normally, which
-nobody has verified; (2) the `GET /outbox/backlog` endpoint, approved and built in
-two pull requests: the value, port, use case and adapter (done), then the route, its
-wiring in `main.py`, the README section and the guard's lists; (3) a proposal for
+nobody has verified; (2) ~~the `GET /outbox/backlog` endpoint~~ — built, in two pull requests; (3) a proposal for
 the relay itself, 4.3: `FOR UPDATE SKIP LOCKED`, publish then mark, batch size,
 retries, and Redis and the relay in `compose.yaml`. The retrieval repository
 **may now be created**; it exists, empty, and needs its own toolchain scaffold
@@ -382,8 +381,11 @@ unpublished outbox row, through `GET /outbox/backlog`, a log line per run and a
 failing `--once` run. **The measure now exists but is not exposed:** `UnpublishedEvents`
 (a count and the oldest `occurred_at`), the port `EventBacklog`, the use case
 `GetEventBacklog` (which turns the instant into whole seconds with the `Clock`,
-never negative, `None` when nothing waits) and `PostgresEventBacklog`. The HTTP
-endpoint, the relay's log line and its exit status do not exist yet.
+never negative, `None` when nothing waits) and `PostgresEventBacklog`, **now
+served at `GET /outbox/backlog`** (always `200`, a measurement and not a health
+check, so Render's probe stays on `/openapi.json`). The relay's log line and its
+exit status do not exist yet. **Until the relay exists nothing marks an event as
+sent, so on the deployed service the number only grows.**
 
 **The transaction boundary is the caller's, everywhere.** No adapter commits.
 If a repository or publisher calls `commit()`, the invariant above is gone and

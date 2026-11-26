@@ -12,6 +12,7 @@ from uuid import UUID
 
 from pydantic import Base64Bytes, BaseModel, ConfigDict, Field
 
+from rag_ingestion.application.get_event_backlog import EventBacklogReport
 from rag_ingestion.application.get_ingestion_status import IngestionStatus
 from rag_ingestion.domain.doc_type import DocType
 from rag_ingestion.domain.document_status import DocumentStatus
@@ -110,6 +111,27 @@ class IngestionStatusResponse(BaseModel):
             collection_id=status.collection_id.value,
             status=status.status,
             ingested_at=status.ingested_at,
+        )
+
+
+class OutboxBacklogResponse(BaseModel):
+    """How many announcements are waiting to go out, and for how long the oldest has.
+
+    `oldest_unpublished_age_seconds` is whole seconds, and **`null` when nothing is
+    waiting** — not `0`, which would say that the oldest event is brand new. It is
+    how a person or a probe tells a relay that has stopped from one with nothing to
+    do. ADR 0027.
+    """
+
+    unpublished: int
+    oldest_unpublished_age_seconds: int | None
+
+    @classmethod
+    def of(cls, report: EventBacklogReport) -> OutboxBacklogResponse:
+        """Describe a read model on the wire."""
+        return cls(
+            unpublished=report.unpublished,
+            oldest_unpublished_age_seconds=report.oldest_unpublished_age_seconds,
         )
 
 

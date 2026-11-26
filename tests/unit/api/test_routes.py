@@ -8,7 +8,7 @@ Unit tests, not integration ones, and that classification is the point:
 import base64
 import inspect
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from uuid import uuid4
 
@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from rag_ingestion.api import dependencies
 from rag_ingestion.api.app import create_app
 from rag_ingestion.application.create_collection import CreateCollection
+from rag_ingestion.application.get_event_backlog import GetEventBacklog
 from rag_ingestion.application.get_ingestion_status import GetIngestionStatus
 from rag_ingestion.application.ingest_document import IngestDocument
 from rag_ingestion.domain.collection import Collection
@@ -30,6 +31,7 @@ from rag_ingestion.domain.document_status import DocumentStatus
 from rag_ingestion.domain.events import DocumentIngested
 from rag_ingestion.domain.ingestion_policy import IngestionPolicy
 from rag_ingestion.domain.limits import IngestionLimits
+from rag_ingestion.domain.unpublished_events import UnpublishedEvents
 
 INGESTED_AT = datetime(2026, 9, 12, 12, 0, tzinfo=UTC)
 CONTENT = b"FastAPI runs a def endpoint in a threadpool."
@@ -94,8 +96,18 @@ class FixedClock:
         return self.instant
 
 
+class StubEventBacklog:
+    """Answers with whatever the test last put in `waiting`."""
+
+    def __init__(self) -> None:
+        self.waiting = UnpublishedEvents(count=0)
+
+    def unpublished(self) -> UnpublishedEvents:
+        return self.waiting
+
+
 class Service:
-    """The three use cases over one set of doubles, wired as 4.5 will wire them."""
+    """The four use cases over one set of doubles, wired as 4.5 will wire them."""
 
     def __init__(self, policy: IngestionPolicy | None = None) -> None:
         self.documents = InMemoryDocumentRepository()
@@ -110,6 +122,10 @@ class Service:
         )
         self.create = CreateCollection(collections=self.collections)
         self.status = GetIngestionStatus(documents=self.documents)
+        self.outbox = StubEventBacklog()
+        self.backlog = GetEventBacklog(
+            backlog=self.outbox, clock=FixedClock(INGESTED_AT)
+        )
 
 
 def _app_for(service: Service) -> FastAPI:
@@ -117,6 +133,7 @@ def _app_for(service: Service) -> FastAPI:
     app.dependency_overrides[dependencies.ingest_document] = lambda: service.ingest
     app.dependency_overrides[dependencies.create_collection] = lambda: service.create
     app.dependency_overrides[dependencies.get_ingestion_status] = lambda: service.status
+    app.dependency_overrides[dependencies.get_event_backlog] = lambda: service.backlog
     return app
 
 
@@ -337,6 +354,58 @@ class TestReportingOnADocument:
         assert response.json()["code"] == "invalid_request"
 
 
+class TestReportingOnTheBacklog:
+    """`GET /outbox/backlog`: a measurement of what is waiting, never a verdict."""
+
+    def test_nothing_waiting_is_a_zero_and_a_null_age(self, client: TestClient) -> None:
+        response = client.get("/outbox/backlog")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {
+            "unpublished": 0,
+            "oldest_unpublished_age_seconds": None,
+        }
+
+    def test_something_waiting_reports_the_count_and_the_age_in_seconds(
+        self, client: TestClient, service: Service
+    ) -> None:
+        service.outbox.waiting = UnpublishedEvents(
+            count=3, oldest_occurred_at=INGESTED_AT - timedelta(minutes=7)
+        )
+
+        response = client.get("/outbox/backlog")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {
+            "unpublished": 3,
+            "oldest_unpublished_age_seconds": 7 * 60,
+        }
+
+    def test_it_answers_200_however_old_the_oldest_event_is(
+        self, client: TestClient, service: Service
+    ) -> None:
+        # A measurement and not a judgement: the threshold belongs to whoever reads
+        # it, and a status that changed with the number would make this a health
+        # check on a database. ADR 0027.
+        service.outbox.waiting = UnpublishedEvents(
+            count=500, oldest_occurred_at=INGESTED_AT - timedelta(days=30)
+        )
+
+        response = client.get("/outbox/backlog")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.json()["oldest_unpublished_age_seconds"] == 30 * 24 * 3600
+
+    def test_the_endpoint_is_documented_with_no_refusals(
+        self, client: TestClient
+    ) -> None:
+        operation = client.get("/openapi.json").json()["paths"]["/outbox/backlog"][
+            "get"
+        ]
+
+        assert set(operation["responses"]) == {"200"}
+
+
 class TestTheLayerItself:
     def test_the_endpoints_are_documented_automatically(
         self, client: TestClient
@@ -348,6 +417,7 @@ class TestTheLayerItself:
             "/collections",
             "/collections/{collection_id}/documents",
             "/documents/{document_id}",
+            "/outbox/backlog",
         }
         # The refusal shape is documented too, not just the happy path.
         assert "ErrorResponse" in schema["components"]["schemas"]
@@ -409,6 +479,7 @@ class TestTheLayerItself:
                 "IngestDocument",
             ),
             ("GET", f"/documents/{uuid4()}", None, "GetIngestionStatus"),
+            ("GET", "/outbox/backlog", None, "GetEventBacklog"),
         ],
     )
     def test_the_application_ships_unwired(

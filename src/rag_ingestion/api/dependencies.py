@@ -16,6 +16,7 @@ the whole argument, and ADR 0015 records it.
 """
 
 from rag_ingestion.application.create_collection import CreateCollection
+from rag_ingestion.application.get_event_backlog import GetEventBacklog
 from rag_ingestion.application.get_ingestion_status import GetIngestionStatus
 from rag_ingestion.application.ingest_document import IngestDocument
 
@@ -41,4 +42,10 @@ def create_collection() -> CreateCollection:
 def get_ingestion_status() -> GetIngestionStatus:
     """Supply the use case that reports on a document. Overridden at composition."""
     message = _NOT_WIRED.format(name="GetIngestionStatus")
+    raise NotImplementedError(message)
+
+
+def get_event_backlog() -> GetEventBacklog:
+    """Supply the use case that reports the backlog. Overridden at composition."""
+    message = _NOT_WIRED.format(name="GetEventBacklog")
     raise NotImplementedError(message)
