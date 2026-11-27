@@ -247,7 +247,9 @@ Done so far:
   that touches the lockfile. Measured with 0.11.32 (this container's) and 0.12.10
   (CI's); both do it. So add only the lines the change needs and check with
   `uv sync --locked`.
-- Twenty-seven ADRs, in `docs/adr/`. 388 tests — 323 unit, 65 integration.
+- Thirty ADRs, in `docs/adr/`. 425 tests — 340 unit, 85 integration (counted with
+  `uv run pytest --collect-only -q`, and `-m integration` / `-m "not integration"`
+  for the split; they collected without error on Python 3.14.6).
 
 **7.2 is done, and the gate is passed (2026-11-21).** The service runs at
 **https://devtools-rag-ingestion.onrender.com** — Render's free web service for
@@ -309,11 +311,15 @@ fails** — only the endpoint shows it.
 **Next, in order:** (1) **Carlos tests Upstash** — `XADD`, `XGROUP CREATE`,
 `XREADGROUP`, `XACK` on a free database — because the Redis choice stands or falls
 on whether its free plan persists data and counts stream commands normally, which
-nobody has verified; (2) ~~the `GET /outbox/backlog` endpoint~~ — built, in two pull requests; (3) a proposal for
-the relay itself, 4.3: `FOR UPDATE SKIP LOCKED`, publish then mark, batch size,
-retries, and Redis and the relay in `compose.yaml`. The retrieval repository
-**may now be created**; it exists, empty, and needs its own toolchain scaffold
-first.
+nobody has verified; (2) ~~the `GET /outbox/backlog` endpoint~~ — built, in two pull requests;
+(3) ~~a proposal for the relay itself~~ — merged, with its decisions recorded as
+ADRs 0028 to 0030 (see below); (4) the relay's implementation, in pull requests of
+their own: **the core and the PostgreSQL adapter are merged** (#60, #62), and what
+remains is the Redis adapter, the `--once` and `--loop` command with its log line
+and exit status, and it waits for (1) before it goes live; (5) the scheduled
+workflow that runs `--once`, and Redis and the relay in `compose.yaml`, each a
+separate pull request because they touch CI and deployment. The retrieval repository **may now be created**; it
+exists, empty, and needs its own toolchain scaffold first.
 
 **The scanner revisit ADR 0022 asked for has happened: deferred again.** The only
 credential is a PostgreSQL URL with a password, which the existing guard matches.
@@ -325,10 +331,32 @@ bounded by Neon's 0.5 GB; a health check that cannot see a wrong `DATABASE_URL`;
 the relay at 4.3 will not fit Render's free plan, which ADR 0027 answers with a
 scheduled command.
 
-**4.3, the relay, is unblocked.** `EXT3 --> U43` is satisfied, and the two
-decisions ADR 0016 and ADR 0025 left open are made (ADR 0027). What stands between
-it and the code is the Upstash test and two proposals, in the order above. **Phase 5
-(containers) is done** and so is the gate.
+**4.3, the relay, is unblocked and decided, and its core is merged but runs
+nowhere.** `EXT3 --> U43` is satisfied, and the decisions ADR 0016 and ADR 0025
+left open are made (ADR 0027).
+The relay's proposal, `docs/proposals/relay-internals.md`, and ADRs 0028 to 0030 are
+merged: **publish then mark each batch inside one locked transaction, with
+`FOR UPDATE SKIP LOCKED` and batches of 100** (0028); **the stream bounded by
+`MAXLEN ~ 100000`** (0029); **`redis-py` as the synchronous client** (0030). **Merged
+so far:** the domain value `OutboxRow`, the ports `Outbox` and `EventBroker`, the
+use case `RelayOutbox` (claim, publish with retries after 1, 2 and 4 seconds, then
+mark with the `Clock`'s instant; it never commits, the caller does) and
+`PostgresOutbox` (`FOR UPDATE SKIP LOCKED`, no migration). **Not merged:** the
+Redis adapter, the command and the workflow. What stands between it and going live
+is the Upstash test and those pull requests. **Phase 5 (containers) is done** and so is the gate.
+
+**Settled by the implementation:** `published_at` takes its instant from the
+`Clock` port (ADR 0009; ADR 0012 rejected a `DEFAULT now()`), and the use case owns
+the unit of work while the caller owns commit and rollback. ADR 0028 now says so.
+
+**Two points the ADRs still leave open, none decided here:**
+
+1. **Who sets the 30-minute alarm threshold:** ADR 0027 leaves the exact value to
+   the relay's own proposal, and the proposal says it belongs to the workflow pull
+   request.
+2. **The `outbox` table is never trimmed.** ADR 0029 bounds the Redis stream only;
+   rows in PostgreSQL, marked or not, accumulate. `docs/proposals/outbox-retention.md`
+   (proposed, not decided) examines it.
 
 **`!cancelled()` belongs in `checks` and not in `image`.** In `checks` the steps
 are independent checks and one run should report every failure. In `image` they are
@@ -384,8 +412,9 @@ failing `--once` run. **The measure now exists but is not exposed:** `Unpublishe
 never negative, `None` when nothing waits) and `PostgresEventBacklog`, **now
 served at `GET /outbox/backlog`** (always `200`, a measurement and not a health
 check, so Render's probe stays on `/openapi.json`). The relay's log line and its
-exit status do not exist yet. **Until the relay exists nothing marks an event as
-sent, so on the deployed service the number only grows.**
+exit status do not exist yet. **Until a relay command runs nothing marks an event
+as sent, so on the deployed service the number only grows**, even though the core
+that would mark it is merged.
 
 **The transaction boundary is the caller's, everywhere.** No adapter commits.
 If a repository or publisher calls `commit()`, the invariant above is gone and

@@ -57,8 +57,11 @@ the consumers would absorb the duplicates at a cost that grows with the schedule
 
 ### 3. Batch size 100 (needs approval)
 
-The batch bounds how long a transaction stays open while rows are locked. 100
-keeps each transaction well under a second at the rates this service expects.
+The batch bounds how long a transaction stays open while rows are locked. With
+Redis answering at the first try, 100 keeps each transaction short at the rates
+this service expects; the retry waits of §4 (1, 2 and 4 seconds for each failing
+send) are spent inside the transaction too, so it is not bounded by a second when
+Redis fails (ADR 0028).
 
 **Rejected: batch size 1.** It makes each run longer without reducing the number of
 Redis commands. Each event is one `XADD` either way.
