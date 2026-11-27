@@ -87,20 +87,22 @@ shape of the transaction as it is.
 
 ## Decision
 
-Each batch is one database transaction, and the relay's use case owns it. The
-adapters do not commit (ADR 0013).
+Each batch is one database transaction. The relay's use case owns the unit of
+work, because it claims, sends and marks in one call. The caller owns the
+transaction: it commits when the call returns and rolls back when it raises.
+Neither the use case nor the adapters commit (ADR 0013).
 
 1. Select up to `RELAY_BATCH_SIZE` unpublished rows, in `outbox_id` order, with
    `FOR UPDATE SKIP LOCKED`. Rows another run has locked are skipped.
 2. Send each row to the stream with `XADD`.
-3. If a send fails, retry it after 1, 2 and 4 seconds. If it still fails, the
-   transaction rolls back, the run logs the failure with the `outbox_id`, and the
-   run exits non-zero.
-4. Set `published_at` on the rows of the batch, and commit.
+3. If a send fails, retry it after 1, 2 and 4 seconds. If it still fails, the use
+   case raises an error carrying the `outbox_id`, the caller rolls the
+   transaction back, the run logs the failure, and the run exits non-zero.
+4. Set `published_at` on the rows of the batch, with the instant read once from
+   the `Clock` port after the last send, and return. The caller commits.
 
 A row whose payload cannot be sent at all takes the same path as step 3, and the
-batch stays blocked until the row is fixed by hand. How `published_at` is given its
-value is discussed under Consequences.
+batch stays blocked until the row is fixed by hand.
 
 ## Consequences
 
@@ -134,11 +136,14 @@ and not the shape of the design.
 before an earlier one. This is ADR 0012's ordering limit, and this record does not
 change it.
 
-**Open: where `published_at` gets its value.** The proposal's statement sets it with
-the database's `now()`. ADR 0009 says that time enters the service through the
-`Clock` port, and ADR 0012 rejected a `DEFAULT now()` for the same reason. The
-implementation pull request must either take the instant from the `Clock` or record
-why it does not. This record does not settle that question.
+**Decided: `published_at` comes from the `Clock` port, not from the database's
+`now()`.** The proposal's statement used `now()`. ADR 0009 says that time enters
+the service through the `Clock` port, and ADR 0012 rejected a `DEFAULT now()` for
+the same reason, so the use case reads the instant once, after the last send, and
+passes it to the adapter as a parameter. Every row of a batch therefore carries
+one stamp, which is later than the moment each row was actually sent and never
+earlier. That is harmless for ordering, and it means `published_at` is the end of
+the run and not the instant of each send.
 
 **Not covered here.** The stream's size is bounded in ADR 0029. The outbox table
 in PostgreSQL is not trimmed by this record, so its rows, marked or not, accumulate.
