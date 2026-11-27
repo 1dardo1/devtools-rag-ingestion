@@ -12,6 +12,7 @@ everywhere. That record also names the risk, which is a change of workload
 rather than of volume.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
@@ -21,6 +22,7 @@ from rag_ingestion.domain.content_hash import ContentHash
 from rag_ingestion.domain.document import Document
 from rag_ingestion.domain.document_id import DocumentId
 from rag_ingestion.domain.events import DocumentIngested
+from rag_ingestion.domain.outbox_row import OutboxRow
 from rag_ingestion.domain.unpublished_events import UnpublishedEvents
 
 
@@ -180,4 +182,49 @@ class EventBacklog(Protocol):
 
     def unpublished(self) -> UnpublishedEvents:
         """Describe what has been written to the outbox and not yet sent."""
+        ...
+
+
+class Outbox(Protocol):
+    """The outbox as the relay reads it: a queue of rows to claim and to mark.
+
+    **A different port from `EventPublisher` and `EventBacklog`, for a different
+    client.** The publisher writes a row inside the document's transaction, the
+    backlog counts, and this one hands a batch to the relay and records that it
+    went. Folding them together would give the single most important invariant's
+    collaborator a second, unrelated job.
+
+    **Neither method commits, and `claim` locks.** The rows it returns are held
+    for the caller's open transaction, so another relay running at the same time
+    does not receive them (ADR 0028), and the caller's commit is what makes
+    `mark_published` durable. ADR 0013.
+    """
+
+    def claim_unpublished(self, limit: int) -> Sequence[OutboxRow]:
+        """Take up to `limit` unpublished rows, oldest `outbox_id` first.
+
+        Rows another transaction holds are skipped rather than waited for.
+        """
+        ...
+
+    def mark_published(self, outbox_ids: Sequence[int], published_at: datetime) -> None:
+        """Record that these rows were sent, at the instant the caller supplies.
+
+        The instant is an argument and not the database's `now()`, because time
+        enters this service through the `Clock` port (ADR 0009).
+        """
+        ...
+
+
+class EventBroker(Protocol):
+    """Where the relay sends an announcement: the stream consumers read from.
+
+    One row at a time, because each event is one command to the broker either way
+    (ADR 0028). The failure is a domain error, `EventBrokerError`, so the relay can
+    retry on it without knowing which client raised it. Its Phase 4 implementation
+    is the Redis adapter; nothing here names Redis.
+    """
+
+    def publish(self, row: OutboxRow) -> None:
+        """Send one row, or raise `EventBrokerError` if it could not be sent."""
         ...
