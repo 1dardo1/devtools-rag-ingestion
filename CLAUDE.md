@@ -87,8 +87,16 @@ an approved change. The main agent writes the code, so it stays one coherent
 diff that can be explained.
 
 Skills, in `.claude/skills/`: `pre-pr-check` before every pull request,
-`new-migration` for any schema change, and `new-adr` for any decision record.
-Use them without being asked whenever the situation matches.
+`new-migration` for any schema change, and `new-adr` for any decision record;
+`verification-before-completion` before any claim that something is done, fixed
+or green; `systematic-debugging` before proposing a fix for any failure;
+`test-driven-development` when implementing an approved change; and
+`redis-streams-client` for anything that talks to Redis. Use them without being
+asked whenever the situation matches. The last four are adapted from public,
+MIT-licensed skills (`obra/superpowers` and `redis/agent-skills`), rewritten for
+this repository's rules, and each keeps its licence in a `LICENSE` file beside
+its `SKILL.md`. Where one of them and `docs/COLLABORATION.md` disagree, the
+collaboration protocol wins.
 
 Hooks, in `.claude/settings.json`, are not optional and must not be worked
 around:
