@@ -80,8 +80,9 @@ piece of engineering in this service.
 > `app`, `postgres` and a one-shot `migrate`; CI asserts that `docker compose up`
 > works on a machine that has never seen this repository, and that a document can
 > be posted through the stack. **Redis and the relay are not there**, because the
-> relay does not exist — 4.3 is blocked — and a Redis nothing reads from would pass
-> its health check while making the outbox look drained. That half arrives with
+> relay has no code yet — 4.3 is decided (ADRs 0027 to 0030) but not built — and a
+> Redis nothing reads from would pass its health check while making the outbox look
+> drained. That half arrives with
 > 4.3, in the change that can exercise it. See ADR 0021.
 
 ## Phase 6 — Quality
